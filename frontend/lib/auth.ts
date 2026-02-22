@@ -14,6 +14,10 @@ export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+export function isAuthenticated() {
+  return Boolean(getToken());
+}
+
 export function clearToken() {
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);

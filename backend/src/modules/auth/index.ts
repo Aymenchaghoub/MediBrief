@@ -5,6 +5,7 @@ import type { SignOptions } from "jsonwebtoken";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { env } from "../../config/env";
+import { writeAuditLog } from "../../utils/audit-log";
 
 export const authRouter = Router();
 
@@ -66,13 +67,11 @@ authRouter.post("/register-clinic", async (req, res) => {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId: adminUser.id,
-          action: "REGISTER_CLINIC",
-          entityType: "CLINIC",
-          entityId: clinic.id,
-        },
+      await writeAuditLog(tx, {
+        userId: adminUser.id,
+        action: "REGISTER_CLINIC",
+        entityType: "CLINIC",
+        entityId: clinic.id,
       });
 
       return { clinic, adminUser };
@@ -128,13 +127,11 @@ authRouter.post("/login", async (req, res) => {
       { expiresIn: tokenExpiresIn },
     );
 
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "LOGIN",
-        entityType: "USER",
-        entityId: user.id,
-      },
+    await writeAuditLog(prisma, {
+      userId: user.id,
+      action: "LOGIN",
+      entityType: "USER",
+      entityId: user.id,
     });
 
     return res.status(200).json({
