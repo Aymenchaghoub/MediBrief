@@ -61,7 +61,7 @@ jobs:
 
       - name: Push schema to database
         working-directory: backend
-        run: npx prisma db push --skip-generate
+        run: npx prisma db push
 
       - name: Run tests
         working-directory: backend
