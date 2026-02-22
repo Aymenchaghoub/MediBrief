@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { writeAuditLog } from "../../utils/audit-log";
+import { invalidateAiStructuredInputCache } from "../ai/queue";
 
 export const labsRouter = Router();
 
@@ -20,7 +21,7 @@ const createLabSchema = z.object({
 
 async function ensurePatientInTenant(patientId: string, clinicId: string) {
   return prisma.patient.findFirst({
-    where: { id: patientId, clinicId },
+    where: { id: patientId, clinicId, isArchived: false },
     select: { id: true },
   });
 }
@@ -57,6 +58,8 @@ labsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
       entityType: "LAB_RESULT",
       entityId: lab.id,
     });
+
+    await invalidateAiStructuredInputCache(parsed.data.patientId);
 
     return res.status(201).json(lab);
   } catch {

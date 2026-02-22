@@ -2,7 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
-import { buildPatientVitalsAnalytics, extractRiskFlags } from "./service";
+import {
+  buildPatientVitalsAnalytics,
+  computeCompositeRiskScore,
+  extractRiskFlags,
+  flagAllLabResults,
+} from "./service";
 
 export const analyticsRouter = Router();
 
@@ -21,7 +26,7 @@ analyticsRouter.get("/patient/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), 
   }
 
   const patient = await prisma.patient.findFirst({
-    where: { id: parsed.data.patientId, clinicId: req.clinicId },
+    where: { id: parsed.data.patientId, clinicId: req.clinicId, isArchived: false },
     select: { id: true, firstName: true, lastName: true },
   });
 
@@ -29,24 +34,42 @@ analyticsRouter.get("/patient/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), 
     return res.status(404).json({ message: "Patient not found" });
   }
 
-  const [vitals, latestSummary] = await Promise.all([
+  const [vitals, labs, latestSummary, recentConsultations] = await Promise.all([
     prisma.vitalRecord.findMany({
       where: { patientId: patient.id },
       orderBy: { recordedAt: "asc" },
       take: 200,
     }),
+    prisma.labResult.findMany({
+      where: { patientId: patient.id },
+      orderBy: { recordedAt: "desc" },
+      take: 50,
+    }),
     prisma.aISummary.findFirst({
       where: { patientId: patient.id },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.consultation.findMany({
+      where: { patientId: patient.id },
+      orderBy: { date: "desc" },
+      take: 10,
+      select: { symptoms: true },
+    }),
   ]);
 
   const analytics = buildPatientVitalsAnalytics(vitals);
+  const riskFlags = extractRiskFlags(latestSummary);
+  const labFlags = flagAllLabResults(labs);
+  const recentSymptoms = recentConsultations.map((c) => c.symptoms);
+
+  const riskScore = computeCompositeRiskScore(analytics, riskFlags, labFlags, recentSymptoms);
 
   return res.status(200).json({
     patient,
     vitals: analytics,
-    riskFlags: extractRiskFlags(latestSummary),
+    riskFlags,
+    labFlags,
+    riskScore,
   });
 });
 
@@ -59,6 +82,7 @@ analyticsRouter.get("/clinic-risk", roleMiddleware(["ADMIN", "DOCTOR"]), async (
     where: {
       patient: {
         clinicId: req.clinicId,
+        isArchived: false,
       },
     },
     orderBy: { createdAt: "desc" },

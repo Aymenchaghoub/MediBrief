@@ -8,9 +8,10 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 - Backend API (Express, TypeScript, Prisma)
 - PostgreSQL data model for clinic-scoped healthcare records
 - AI summary generation with OpenAI-compatible providers
+- Asynchronous AI jobs (BullMQ + Redis) with polling
 - Clinic analytics (risk overview + anomaly-focused trends)
 - Audit logging and role-based access controls
-- Docker setup for local full-stack runs
+- Docker setup for local full-stack runs (frontend + backend + postgres + redis)
 
 ## Tech Stack
 
@@ -19,13 +20,14 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 - Database: PostgreSQL + Prisma ORM
 - Auth: JWT + bcrypt
 - Validation: Zod
-- AI: OpenAI SDK (OpenAI-compatible endpoints)
+- AI: OpenAI SDK + BullMQ (OpenAI-compatible endpoints)
+- Caching/Queue: Redis
 
 ## Repository Structure
 
 - `frontend/` UI and user flows
 - `backend/` API, business logic, Prisma schema
-- `docker-compose.yml` local orchestration (frontend + backend + postgres)
+- `docker-compose.yml` local orchestration (frontend + backend + postgres + redis)
 
 ---
 
@@ -35,7 +37,7 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 2. Create patients (clinic-scoped)
 3. Add consultations
 4. Add vitals/lab data (API-supported)
-5. Generate AI clinical summaries
+5. Generate AI clinical summaries (queued, async)
 6. Review clinic analytics and anomaly indicators
 7. Inspect audit trail (admin role)
 
@@ -70,7 +72,7 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 From repository root:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 ```
 
 ### 2) Backend Setup
@@ -113,6 +115,11 @@ Required/important keys:
 - `RATE_LIMIT_WINDOW_MS`
 - `RATE_LIMIT_MAX`
 - `REQUIRE_HTTPS` (`true|false`)
+- `REDIS_URL` (default `redis://localhost:6379`)
+- `AI_MONTHLY_LIMIT_FREE`
+- `AI_MONTHLY_LIMIT_PRO`
+- `AI_MONTHLY_LIMIT_ENTERPRISE`
+- `SWAGGER_ENABLED` (`true|false`)
 
 AI keys:
 
@@ -160,7 +167,7 @@ Base URL: `/api`
 - `POST /patients`
 - `GET /patients/:id`
 - `PUT /patients/:id`
-- `DELETE /patients/:id` (`ADMIN` only)
+- `DELETE /patients/:id` (`ADMIN` only, soft-archive)
 
 ### Vitals
 
@@ -179,7 +186,12 @@ Base URL: `/api`
 
 ### AI
 
-- `POST /ai/generate-summary/:patientId`
+- `POST /ai/generate-summary/:patientId` (returns `202` + `jobId`)
+- `GET /ai/jobs/:jobId` (poll queue status and resulting `summaryId`)
+
+### API Docs
+
+- `GET /docs` (Swagger UI)
 
 ### Analytics
 
@@ -235,6 +247,7 @@ Services:
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:4000`
 - Postgres: `localhost:5432`
+- Redis: `localhost:6379`
 
 ---
 
@@ -252,6 +265,7 @@ Notes:
 
 - `npm audit` still reports some vulnerabilities in transitive dev tooling chains (not fixed without potentially breaking major upgrades).
 - Keep dependencies reviewed before production release.
+- AI generation requires Redis availability.
 
 ---
 

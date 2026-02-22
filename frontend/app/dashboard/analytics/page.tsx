@@ -39,14 +39,14 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<Patient[]>("/patients", { auth: true }),
+      apiFetch<{ data: Patient[]; nextCursor: string | null }>("/patients?limit=100", { auth: true }),
       apiFetch<ClinicRiskResponse>("/analytics/clinic-risk", { auth: true }),
     ])
-      .then(([patientsData, clinicRiskData]) => {
-        setPatients(patientsData);
+      .then(([resp, clinicRiskData]) => {
+        setPatients(resp.data);
         setClinicRisk(clinicRiskData);
-        if (patientsData[0]) {
-          setSelectedPatientId(patientsData[0].id);
+        if (resp.data[0]) {
+          setSelectedPatientId(resp.data[0].id);
         }
       })
       .catch((error) => {

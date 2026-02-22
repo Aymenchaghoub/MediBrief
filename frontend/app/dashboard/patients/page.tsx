@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { SectionHeader } from "@/components/ui/section-header";
 import { useToast } from "@/components/ui/toast-provider";
 import { apiFetch } from "@/lib/api";
@@ -23,10 +24,17 @@ interface CreatePatientPayload {
   phone?: string;
 }
 
+interface PaginatedResponse {
+  data: Patient[];
+  nextCursor: string | null;
+}
+
 export default function PatientsPage() {
   const { pushToast } = useToast();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<CreatePatientPayload>({
@@ -41,8 +49,9 @@ export default function PatientsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<Patient[]>("/patients", { auth: true });
-      setPatients(data);
+      const resp = await apiFetch<PaginatedResponse>("/patients?limit=20", { auth: true });
+      setPatients(resp.data);
+      setNextCursor(resp.nextCursor);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Unable to load patients";
       setError(message);
@@ -51,6 +60,20 @@ export default function PatientsPage() {
       setIsLoading(false);
     }
   }, [pushToast]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const resp = await apiFetch<PaginatedResponse>(`/patients?limit=20&cursor=${nextCursor}`, { auth: true });
+      setPatients((prev) => [...prev, ...resp.data]);
+      setNextCursor(resp.nextCursor);
+    } catch (fetchError) {
+      pushToast(fetchError instanceof Error ? fetchError.message : "Unable to load more patients", "error");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextCursor, isLoadingMore, pushToast]);
 
   useEffect(() => {
     loadPatients();
@@ -200,7 +223,7 @@ export default function PatientsPage() {
               ) : (
                 patients.map((patient) => (
                   <tr key={patient.id}>
-                    <td>{patient.firstName} {patient.lastName}</td>
+                    <td><Link href={`/dashboard/patients/${patient.id}`}>{patient.firstName} {patient.lastName}</Link></td>
                     <td>{formatDate(patient.dateOfBirth)}</td>
                     <td>{patient.gender}</td>
                     <td>{patient.phone ?? "-"}</td>
@@ -211,6 +234,14 @@ export default function PatientsPage() {
             </tbody>
           </table>
         </div>
+
+        {nextCursor && (
+          <div className="button-row" style={{ marginTop: "1rem" }}>
+            <button className="btn btn-secondary" onClick={loadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? "Loading..." : "Load More"}
+            </button>
+          </div>
+        )}
       </section>
     </>
   );

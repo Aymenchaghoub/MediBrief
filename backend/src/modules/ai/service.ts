@@ -1,6 +1,7 @@
 import type { Consultation, LabResult, Patient, VitalRecord } from "@prisma/client";
 import OpenAI from "openai";
 import { env } from "../../config/env";
+import { anonymizeForAi } from "./anonymizer";
 
 export interface StructuredClinicalInput {
   age: number | null;
@@ -51,6 +52,25 @@ function firstLastDelta(values: number[]) {
   return values[values.length - 1] - values[0];
 }
 
+function calculateLatestZScore(values: number[]) {
+  if (values.length < 4) {
+    return null;
+  }
+
+  const baseline = values.slice(0, -1);
+  const latest = values[values.length - 1];
+
+  const mean = baseline.reduce((sum, value) => sum + value, 0) / baseline.length;
+  const variance = baseline.reduce((sum, value) => sum + (value - mean) ** 2, 0) / baseline.length;
+  const stdDev = Math.sqrt(variance);
+
+  if (stdDev === 0) {
+    return null;
+  }
+
+  return Number(((latest - mean) / stdDev).toFixed(2));
+}
+
 export function buildStructuredInput(
   patient: Patient,
   vitals: VitalRecord[],
@@ -86,10 +106,15 @@ export function buildStructuredInput(
 }
 
 export function buildRiskFlags(input: StructuredClinicalInput): AiGenerationResult["riskFlags"] {
-  const highBloodPressureTrend = input.bpTrend.some((value) => value >= 140);
-  const risingGlucoseTrend = firstLastDelta(input.glucoseTrend) >= 15 || input.glucoseTrend.some((value) => value >= 126);
-  const tachycardiaTrend = input.heartRateTrend.some((value) => value > 100);
-  const rapidWeightChange = Math.abs(firstLastDelta(input.weightTrend)) >= 4;
+  const bpZScore = calculateLatestZScore(input.bpTrend);
+  const glucoseZScore = calculateLatestZScore(input.glucoseTrend);
+  const heartRateZScore = calculateLatestZScore(input.heartRateTrend);
+  const weightZScore = calculateLatestZScore(input.weightTrend);
+
+  const highBloodPressureTrend = bpZScore !== null && bpZScore >= 2;
+  const risingGlucoseTrend = glucoseZScore !== null && glucoseZScore >= 2;
+  const tachycardiaTrend = heartRateZScore !== null && heartRateZScore >= 2;
+  const rapidWeightChange = weightZScore !== null && Math.abs(weightZScore) >= 2;
 
   const concerningSymptoms = input.recentSymptoms.filter((symptom) =>
     /(chest pain|dyspnea|fatigue|syncope|dizziness)/i.test(symptom),
@@ -146,6 +171,8 @@ async function generateWithOpenAi(input: StructuredClinicalInput) {
     return null;
   }
 
+  const anonymized = anonymizeForAi(input);
+
   const client = new OpenAI({
     apiKey: env.OPENAI_API_KEY,
     baseURL: env.OPENAI_BASE_URL,
@@ -163,11 +190,11 @@ async function generateWithOpenAi(input: StructuredClinicalInput) {
         {
           role: "system",
           content:
-            "You are a clinical documentation assistant. Never diagnose. Summarize trends, highlight anomalies, suggest monitoring focus, and include a disclaimer that this is not a diagnosis.",
+            "You are a clinical documentation assistant. Never diagnose. Summarize trends, highlight anomalies, suggest monitoring focus, and include a disclaimer that this is not a diagnosis. The data you receive is anonymized — do not ask for or infer patient identity.",
         },
         {
           role: "user",
-          content: JSON.stringify(input),
+          content: JSON.stringify(anonymized),
         },
       ],
     });

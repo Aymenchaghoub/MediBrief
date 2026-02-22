@@ -30,6 +30,8 @@ model Clinic {
   name             String
   email            String   @unique
   subscriptionPlan String
+  aiCallCount      Int      @default(0)
+  billingPeriodStart DateTime @default(now())
   createdAt        DateTime @default(now())
 
   users    User[]
@@ -43,6 +45,7 @@ model User {
   email        String   @unique
   passwordHash String
   role         UserRole
+  isArchived   Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
@@ -60,6 +63,7 @@ model Patient {
   dateOfBirth DateTime
   gender      Gender
   phone       String?
+  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)

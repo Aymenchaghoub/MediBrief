@@ -22,11 +22,23 @@ interface Consultation {
   };
 }
 
+interface PaginatedConsultations {
+  data: Consultation[];
+  nextCursor: string | null;
+}
+
+interface PaginatedPatients {
+  data: Patient[];
+  nextCursor: string | null;
+}
+
 export default function ConsultationsPage() {
   const { pushToast } = useToast();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [consultationsCursor, setConsultationsCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadedPatientId, setLoadedPatientId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -38,10 +50,12 @@ export default function ConsultationsPage() {
   const loadConsultations = useCallback(
     async (patientId: string) => {
       try {
-        const data = await apiFetch<Consultation[]>(`/consultations/${patientId}`, { auth: true });
-        setConsultations(data);
+        const resp = await apiFetch<PaginatedConsultations>(`/consultations/${patientId}?limit=20`, { auth: true });
+        setConsultations(resp.data);
+        setConsultationsCursor(resp.nextCursor);
       } catch (error) {
         setConsultations([]);
+        setConsultationsCursor(null);
         pushToast(error instanceof Error ? error.message : "Unable to load consultations.", "error");
       } finally {
         setLoadedPatientId(patientId);
@@ -50,12 +64,29 @@ export default function ConsultationsPage() {
     [pushToast],
   );
 
+  const loadMoreConsultations = useCallback(async () => {
+    if (!consultationsCursor || !selectedPatientId || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const resp = await apiFetch<PaginatedConsultations>(
+        `/consultations/${selectedPatientId}?limit=20&cursor=${consultationsCursor}`,
+        { auth: true },
+      );
+      setConsultations((prev) => [...prev, ...resp.data]);
+      setConsultationsCursor(resp.nextCursor);
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Unable to load more consultations.", "error");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [consultationsCursor, selectedPatientId, isLoadingMore, pushToast]);
+
   useEffect(() => {
-    apiFetch<Patient[]>("/patients", { auth: true })
-      .then((data) => {
-        setPatients(data);
-        if (data[0]) {
-          setSelectedPatientId(data[0].id);
+    apiFetch<PaginatedPatients>("/patients?limit=100", { auth: true })
+      .then((resp) => {
+        setPatients(resp.data);
+        if (resp.data[0]) {
+          setSelectedPatientId(resp.data[0].id);
         }
       })
       .catch((error) => {
@@ -196,6 +227,14 @@ export default function ConsultationsPage() {
             <p className="muted">Notes: {consultation.notes}</p>
           </div>
         ))}
+
+        {consultationsCursor && (
+          <div className="button-row" style={{ marginTop: "1rem" }}>
+            <button className="btn btn-secondary" onClick={loadMoreConsultations} disabled={isLoadingMore}>
+              {isLoadingMore ? "Loading..." : "Load More"}
+            </button>
+          </div>
+        )}
       </section>
     </>
   );

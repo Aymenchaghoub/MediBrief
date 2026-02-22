@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { writeAuditLog } from "../../utils/audit-log";
+import { invalidateAiStructuredInputCache } from "../ai/queue";
 
 export const consultationsRouter = Router();
 
@@ -19,7 +20,7 @@ const createConsultationSchema = z.object({
 
 async function ensurePatientInTenant(patientId: string, clinicId: string) {
   return prisma.patient.findFirst({
-    where: { id: patientId, clinicId },
+    where: { id: patientId, clinicId, isArchived: false },
     select: { id: true },
   });
 }
@@ -57,10 +58,17 @@ consultationsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, r
       entityId: consultation.id,
     });
 
+    await invalidateAiStructuredInputCache(parsed.data.patientId);
+
     return res.status(201).json(consultation);
   } catch {
     return res.status(500).json({ message: "Unable to create consultation" });
   }
+});
+
+const cursorPaginationSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 consultationsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
@@ -78,9 +86,18 @@ consultationsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), asyn
     return res.status(404).json({ message: "Patient not found" });
   }
 
+  const parsed = cursorPaginationSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query params", errors: parsed.error.flatten() });
+  }
+
+  const { cursor, limit } = parsed.data;
+
   const consultations = await prisma.consultation.findMany({
     where: { patientId: parsedParams.data.patientId },
     orderBy: { date: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     include: {
       doctor: {
         select: {
@@ -93,5 +110,9 @@ consultationsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), asyn
     },
   });
 
-  return res.status(200).json(consultations);
+  const hasMore = consultations.length > limit;
+  const data = hasMore ? consultations.slice(0, limit) : consultations;
+  const nextCursor = hasMore ? data[data.length - 1]?.id ?? null : null;
+
+  return res.status(200).json({ data, nextCursor });
 });

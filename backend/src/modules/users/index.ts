@@ -16,11 +16,12 @@ usersRouter.get("/me", async (req, res) => {
       name: true,
       email: true,
       role: true,
+      isArchived: true,
       createdAt: true,
     },
   });
 
-  if (!user) {
+  if (!user || user.isArchived) {
     return res.status(404).json({ message: "User not found" });
   }
 

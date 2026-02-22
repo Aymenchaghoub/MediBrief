@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { writeAuditLog } from "../../utils/audit-log";
+import { invalidateAiStructuredInputCache } from "../ai/queue";
 
 export const vitalsRouter = Router();
 
@@ -19,7 +20,7 @@ const createVitalSchema = z.object({
 
 async function ensurePatientInTenant(patientId: string, clinicId: string) {
   return prisma.patient.findFirst({
-    where: { id: patientId, clinicId },
+    where: { id: patientId, clinicId, isArchived: false },
     select: { id: true },
   });
 }
@@ -55,6 +56,8 @@ vitalsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => 
       entityType: "VITAL_RECORD",
       entityId: vital.id,
     });
+
+    await invalidateAiStructuredInputCache(parsed.data.patientId);
 
     return res.status(201).json(vital);
   } catch {

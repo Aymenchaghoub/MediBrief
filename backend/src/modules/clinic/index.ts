@@ -15,6 +15,8 @@ clinicRouter.get("/me", async (req, res) => {
       name: true,
       email: true,
       subscriptionPlan: true,
+      aiCallCount: true,
+      billingPeriodStart: true,
       createdAt: true,
     },
   });

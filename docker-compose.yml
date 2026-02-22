@@ -17,6 +17,15 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: medibrief-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - medibrief_redisdata:/data
+
   backend:
     build:
       context: ./backend
@@ -27,11 +36,14 @@ services:
       - ./backend/.env.docker
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/medibrief?schema=public
+      REDIS_URL: redis://redis:6379
     ports:
       - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:
@@ -49,3 +61,4 @@ services:
 
 volumes:
   medibrief_pgdata:
+  medibrief_redisdata:

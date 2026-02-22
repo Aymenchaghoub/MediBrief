@@ -27,12 +27,12 @@ export default function DashboardHomePage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<Patient[]>("/patients", { auth: true }),
+      apiFetch<{ data: Patient[]; nextCursor: string | null }>("/patients?limit=100", { auth: true }),
       apiFetch<ClinicRisk>("/analytics/clinic-risk", { auth: true }),
     ])
-      .then(([patients, clinicRisk]) => {
-        setPatients(patients);
-        setPatientsCount(patients.length);
+      .then(([resp, clinicRisk]) => {
+        setPatients(resp.data);
+        setPatientsCount(resp.data.length);
         setRiskData(clinicRisk);
       })
       .catch((fetchError) => {

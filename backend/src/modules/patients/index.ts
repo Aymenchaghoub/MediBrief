@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { writeAuditLog } from "../../utils/audit-log";
+import { invalidateAiStructuredInputCache } from "../ai/queue";
 
 export const patientsRouter = Router();
 
@@ -39,17 +40,35 @@ async function writePatientAuditLog(userId: string, action: string, patientId: s
   });
 }
 
+const cursorPaginationSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 patientsRouter.get("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
   if (!req.clinicId) {
     return res.status(403).json({ message: "Tenant context missing" });
   }
 
+  const parsed = cursorPaginationSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query params", errors: parsed.error.flatten() });
+  }
+
+  const { cursor, limit } = parsed.data;
+
   const patients = await prisma.patient.findMany({
-    where: { clinicId: req.clinicId },
+    where: { clinicId: req.clinicId, isArchived: false },
     orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return res.status(200).json(patients);
+  const hasMore = patients.length > limit;
+  const data = hasMore ? patients.slice(0, limit) : patients;
+  const nextCursor = hasMore ? data[data.length - 1]?.id ?? null : null;
+
+  return res.status(200).json({ data, nextCursor });
 });
 
 patientsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
@@ -95,7 +114,7 @@ patientsRouter.get("/:id", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res)
   }
 
   const patient = await prisma.patient.findFirst({
-    where: { id: parsedParams.data.id, clinicId: req.clinicId },
+    where: { id: parsedParams.data.id, clinicId: req.clinicId, isArchived: false },
   });
 
   if (!patient) {
@@ -121,7 +140,7 @@ patientsRouter.put("/:id", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res)
   }
 
   const existingPatient = await prisma.patient.findFirst({
-    where: { id: parsedParams.data.id, clinicId: req.clinicId },
+    where: { id: parsedParams.data.id, clinicId: req.clinicId, isArchived: false },
     select: { id: true },
   });
 
@@ -136,6 +155,7 @@ patientsRouter.put("/:id", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res)
     });
 
     await writePatientAuditLog(req.user.id, "PATIENT_UPDATE", updatedPatient.id);
+    await invalidateAiStructuredInputCache(updatedPatient.id);
 
     return res.status(200).json(updatedPatient);
   } catch {
@@ -155,7 +175,7 @@ patientsRouter.delete("/:id", roleMiddleware(["ADMIN"]), async (req, res) => {
   }
 
   const existingPatient = await prisma.patient.findFirst({
-    where: { id: parsedParams.data.id, clinicId: req.clinicId },
+    where: { id: parsedParams.data.id, clinicId: req.clinicId, isArchived: false },
     select: { id: true },
   });
 
@@ -164,8 +184,12 @@ patientsRouter.delete("/:id", roleMiddleware(["ADMIN"]), async (req, res) => {
   }
 
   try {
-    await prisma.patient.delete({ where: { id: existingPatient.id } });
-    await writePatientAuditLog(req.user.id, "PATIENT_DELETE", existingPatient.id);
+    await prisma.patient.update({
+      where: { id: existingPatient.id },
+      data: { isArchived: true },
+    });
+    await writePatientAuditLog(req.user.id, "PATIENT_ARCHIVE", existingPatient.id);
+    await invalidateAiStructuredInputCache(existingPatient.id);
 
     return res.status(204).send();
   } catch {

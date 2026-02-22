@@ -14,6 +14,10 @@ const navItems = [
   { href: "/dashboard/ai-summary", label: "AI Summary" },
 ];
 
+const adminNavItems = [
+  { href: "/dashboard/security", label: "Security" },
+];
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -73,6 +77,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+          {userRole === "ADMIN" &&
+            adminNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className={`dashboard-nav-item ${pathname === item.href ? "dashboard-nav-item-active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            ))}
         </nav>
       </aside>
 
