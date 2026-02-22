@@ -130,40 +130,98 @@ export function buildRiskFlags(input: StructuredClinicalInput): AiGenerationResu
   };
 }
 
+function describeTrend(values: number[], label: string): string | null {
+  if (values.length === 0) return null;
+  if (values.length === 1) return `${label}: single reading of ${values[0]}.`;
+
+  const latest = values[values.length - 1];
+  const first = values[0];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const avg = (values.reduce((s, v) => s + v, 0) / values.length).toFixed(1);
+  const delta = latest - first;
+  const direction = delta > 0 ? "increasing" : delta < 0 ? "decreasing" : "stable";
+
+  return `${label}: ${values.length} readings (range ${min}–${max}, avg ${avg}). Latest: ${latest}. Trend: ${direction} (Δ ${delta > 0 ? "+" : ""}${delta.toFixed(1)}).`;
+}
+
 function createFallbackSummary(input: StructuredClinicalInput, riskFlags: AiGenerationResult["riskFlags"]) {
-  const lines = [
-    "Clinical trend summary generated from structured records.",
-    `Patient age: ${input.age ?? "N/A"}`,
-    `Blood pressure points: ${input.bpTrend.length}`,
-    `Glucose points: ${input.glucoseTrend.length}`,
-    `Heart rate points: ${input.heartRateTrend.length}`,
-    `Weight points: ${input.weightTrend.length}`,
-    `Recent symptom count: ${input.recentSymptoms.length}`,
-  ];
+  const sections: string[] = [];
 
-  if (riskFlags.highBloodPressureTrend) {
-    lines.push("Potential concern: elevated blood pressure trend observed.");
+  // Header
+  sections.push("═══ MediBrief Clinical Trend Summary ═══");
+  sections.push("");
+  sections.push(`Patient age: ${input.age ?? "Unknown"} | Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`);
+  sections.push("");
+
+  // Vitals section
+  const vitalLines = [
+    describeTrend(input.bpTrend, "Blood Pressure"),
+    describeTrend(input.glucoseTrend, "Glucose"),
+    describeTrend(input.heartRateTrend, "Heart Rate"),
+    describeTrend(input.weightTrend, "Weight"),
+  ].filter(Boolean);
+
+  if (vitalLines.length > 0) {
+    sections.push("── Vital Signs ──");
+    sections.push(...vitalLines as string[]);
+  } else {
+    sections.push("── Vital Signs ──");
+    sections.push("No vital records available for trend analysis.");
+  }
+  sections.push("");
+
+  // Lab results section
+  if (input.recentLabValues.length > 0) {
+    sections.push("── Laboratory Results ──");
+    for (const lab of input.recentLabValues) {
+      const ref = lab.referenceRange ? ` (ref: ${lab.referenceRange})` : "";
+      sections.push(`• ${lab.testName}: ${lab.value}${ref}`);
+    }
+    sections.push("");
   }
 
-  if (riskFlags.risingGlucoseTrend) {
-    lines.push("Potential concern: glucose trend suggests upward evolution.");
+  // Symptoms section
+  if (input.recentSymptoms.length > 0) {
+    sections.push("── Recent Symptoms ──");
+    for (const symptom of input.recentSymptoms) {
+      sections.push(`• ${symptom}`);
+    }
+    sections.push("");
   }
 
-  if (riskFlags.tachycardiaTrend) {
-    lines.push("Potential concern: heart rate entries include tachycardic values.");
-  }
-
-  if (riskFlags.rapidWeightChange) {
-    lines.push("Potential concern: notable weight change across recent records.");
-  }
-
+  // Risk flags section
+  const alerts: string[] = [];
+  if (riskFlags.highBloodPressureTrend) alerts.push("⚠ Elevated blood pressure trend — consider monitoring frequency increase.");
+  if (riskFlags.risingGlucoseTrend) alerts.push("⚠ Rising glucose trend — review dietary plan and HbA1c.");
+  if (riskFlags.tachycardiaTrend) alerts.push("⚠ Tachycardia trend detected — evaluate cardiac workup.");
+  if (riskFlags.rapidWeightChange) alerts.push("⚠ Significant weight change — assess fluid balance and nutrition.");
   if (riskFlags.concerningSymptoms.length > 0) {
-    lines.push(`Monitoring focus symptoms: ${riskFlags.concerningSymptoms.join(", ")}.`);
+    alerts.push(`⚠ Concerning symptoms reported: ${riskFlags.concerningSymptoms.join(", ")}.`);
   }
 
-  lines.push(riskFlags.disclaimer);
+  if (alerts.length > 0) {
+    sections.push("── Clinical Alerts ──");
+    sections.push(...alerts);
+    sections.push("");
+  } else {
+    sections.push("── Clinical Alerts ──");
+    sections.push("No significant risk flags detected at this time.");
+    sections.push("");
+  }
 
-  return lines.join("\n");
+  // Monitoring recommendation
+  sections.push("── Monitoring Recommendations ──");
+  if (vitalLines.length === 0 && input.recentLabValues.length === 0) {
+    sections.push("Insufficient data for trend analysis. Consider adding vital signs and lab results for a comprehensive summary.");
+  } else {
+    sections.push("Continue routine monitoring. AI-enhanced summary will provide deeper insights when an AI provider API key is configured.");
+  }
+  sections.push("");
+
+  sections.push(`Disclaimer: ${riskFlags.disclaimer}`);
+
+  return sections.join("\n");
 }
 
 async function generateWithOpenAi(input: StructuredClinicalInput) {
@@ -183,19 +241,47 @@ async function generateWithOpenAi(input: StructuredClinicalInput) {
   });
 
   try {
+    const systemPrompt = `You are MediBrief, a clinical documentation assistant for healthcare professionals.
+
+Your task: analyze the anonymized patient data below and produce a structured clinical summary.
+
+Rules:
+- NEVER diagnose. Only identify trends, flag anomalies, and suggest monitoring focus areas.
+- Write in clear, professional medical language suitable for a physician's chart review.
+- Data is anonymized — do not ask for or attempt to infer patient identity.
+
+Output format (use these exact section headers):
+
+## Clinical Overview
+Brief 2-3 sentence overview of the patient's current clinical picture.
+
+## Vital Sign Trends
+Analyze each available vital sign series. Note direction (improving/worsening/stable), rate of change, and whether values are within normal ranges. If insufficient data, state so.
+
+## Laboratory Findings
+Review lab values against reference ranges. Flag any out-of-range results and their clinical significance.
+
+## Symptom Analysis
+Correlate reported symptoms with vital/lab trends where applicable.
+
+## Risk Assessment
+List specific clinical concerns ranked by priority. For each concern, briefly explain the supporting data.
+
+## Recommended Monitoring
+Suggest specific follow-up actions, tests, or monitoring frequency adjustments.
+
+## Disclaimer
+End with: "AI-generated monitoring support only. This is not a diagnosis. Clinical decisions should be made by qualified healthcare professionals."`;
+
+    const userPrompt = `Anonymized patient clinical data:\n\n${JSON.stringify(anonymized, null, 2)}`;
+
     const response = await client.chat.completions.create({
       model: env.OPENAI_MODEL,
-      temperature: 0.2,
+      temperature: 0.3,
+      max_tokens: 1500,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a clinical documentation assistant. Never diagnose. Summarize trends, highlight anomalies, suggest monitoring focus, and include a disclaimer that this is not a diagnosis. The data you receive is anonymized — do not ask for or infer patient identity.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify(anonymized),
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
       ],
     });
 

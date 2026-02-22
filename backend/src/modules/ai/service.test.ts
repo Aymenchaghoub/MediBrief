@@ -93,7 +93,7 @@ describe("AI service utilities", () => {
     const input = buildStructuredInput(makePatient(), makeVitals(), makeLabs(), makeConsultations());
     const summary = await generateClinicalSummary(input);
 
-    expect(summary.summaryText).toContain("Clinical trend summary");
+    expect(summary.summaryText).toContain("Clinical Trend Summary");
     expect(summary.summaryText).toContain("not a diagnosis");
     expect(summary.riskFlags.risingGlucoseTrend).toBe(true);
   });

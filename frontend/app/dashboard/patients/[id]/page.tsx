@@ -186,8 +186,8 @@ export default function PatientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === "Overview" && <OverviewTab analytics={analytics} />}
-      {activeTab === "Vitals" && <VitalsTab trends={analytics.vitals.trends} />}
-      {activeTab === "Labs" && <LabsTab labs={analytics.labFlags} />}
+      {activeTab === "Vitals" && <VitalsTab trends={analytics.vitals.trends} patientId={patientId} onRefresh={load} />}
+      {activeTab === "Labs" && <LabsTab labs={analytics.labFlags} patientId={patientId} onRefresh={load} />}
       {activeTab === "Consultations" && <ConsultationsTab consultations={consultations} />}
       {activeTab === "AI Summary" && <AISummaryTab summaries={summaries} />}
       {activeTab === "Chat" && <ChatTab patientId={patientId} />}
@@ -281,10 +281,96 @@ function OverviewTab({ analytics }: { analytics: AnalyticsResponse }) {
   );
 }
 
-function VitalsTab({ trends }: { trends: VitalTrend[] }) {
+function VitalsTab({ trends, patientId, onRefresh }: { trends: VitalTrend[]; patientId: string; onRefresh: () => void }) {
+  const { pushToast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({ type: "BP", value: "", recordedAt: new Date().toISOString().slice(0, 10) });
+
+  const vitalTypes = [
+    { value: "BP", label: "Blood Pressure" },
+    { value: "GLUCOSE", label: "Glucose" },
+    { value: "HEART_RATE", label: "Heart Rate" },
+    { value: "WEIGHT", label: "Weight" },
+  ];
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.value.trim()) return;
+    setIsSaving(true);
+    try {
+      await apiFetch("/vitals", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          patientId,
+          type: form.type,
+          value: form.value.trim(),
+          recordedAt: new Date(form.recordedAt).toISOString(),
+        }),
+      });
+      pushToast("Vital recorded successfully", "success");
+      setForm({ type: "BP", value: "", recordedAt: new Date().toISOString().slice(0, 10) });
+      setIsAdding(false);
+      onRefresh();
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : "Failed to save vital", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <section className="panel">
-      <SectionHeader title="Vital Trends" description="Z-score anomaly detection across 4 vital categories." />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <SectionHeader title="Vital Trends" description="Z-score anomaly detection across 4 vital categories." />
+        <button className="btn btn-primary" onClick={() => setIsAdding(!isAdding)}>
+          {isAdding ? "Cancel" : "+ Record Vital"}
+        </button>
+      </div>
+
+      {isAdding && (
+        <form onSubmit={handleSubmit} className="panel" style={{ marginBottom: "1.2rem", background: "var(--clr-surface-2)", padding: "1rem" }}>
+          <h4 style={{ margin: "0 0 0.8rem" }}>New Vital Reading</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem" }}>
+            <div className="field">
+              <label htmlFor="vital-type">Type</label>
+              <select id="vital-type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                {vitalTypes.map((vt) => (
+                  <option key={vt.value} value={vt.value}>{vt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="vital-value">Value</label>
+              <input
+                id="vital-value"
+                type="text"
+                placeholder={form.type === "BP" ? "120/80" : "e.g. 98"}
+                value={form.value}
+                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="vital-date">Recorded At</label>
+              <input
+                id="vital-date"
+                type="date"
+                value={form.recordedAt}
+                onChange={(e) => setForm({ ...form, recordedAt: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: "0.8rem", display: "flex", gap: "0.5rem" }}>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Vital"}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
+          </div>
+        </form>
+      )}
 
       {trends.map((trend) => (
         <div key={trend.metric} className="panel timeline-item" style={{ marginBottom: "0.8rem" }}>
@@ -312,46 +398,142 @@ function VitalsTab({ trends }: { trends: VitalTrend[] }) {
   );
 }
 
-function LabsTab({ labs }: { labs: LabFlag[] }) {
-  if (labs.length === 0) {
-    return (
-      <section className="panel">
-        <SectionHeader title="Lab Results" description="Out-of-range detection with reference range parsing." />
-        <p className="muted">No lab results recorded yet.</p>
-      </section>
-    );
+function LabsTab({ labs, patientId, onRefresh }: { labs: LabFlag[]; patientId: string; onRefresh: () => void }) {
+  const { pushToast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({ testName: "", value: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.testName.trim() || !form.value.trim()) return;
+    setIsSaving(true);
+    try {
+      await apiFetch("/labs", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          patientId,
+          testName: form.testName.trim(),
+          value: form.value.trim(),
+          ...(form.referenceRange.trim() ? { referenceRange: form.referenceRange.trim() } : {}),
+          recordedAt: new Date(form.recordedAt).toISOString(),
+        }),
+      });
+      pushToast("Lab result recorded successfully", "success");
+      setForm({ testName: "", value: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
+      setIsAdding(false);
+      onRefresh();
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : "Failed to save lab result", "error");
+    } finally {
+      setIsSaving(false);
+    }
   }
+
+  const commonTests = ["Hemoglobin", "WBC Count", "Platelets", "Creatinine", "ALT", "AST", "TSH", "HbA1c", "Cholesterol", "Triglycerides"];
 
   return (
     <section className="panel">
-      <SectionHeader title="Lab Results" description="Flagged against parsed reference ranges." />
-
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Test</th>
-              <th>Value</th>
-              <th>Range</th>
-              <th>Status</th>
-              <th>Recorded</th>
-            </tr>
-          </thead>
-          <tbody>
-            {labs.map((lab) => (
-              <tr key={lab.id}>
-                <td>{lab.testName}</td>
-                <td><strong>{lab.value}</strong></td>
-                <td className="muted">{lab.referenceRange ?? "—"}</td>
-                <td>
-                  <LabStatusBadge status={lab.status} />
-                </td>
-                <td>{formatDate(lab.recordedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <SectionHeader title="Lab Results" description="Flagged against parsed reference ranges." />
+        <button className="btn btn-primary" onClick={() => setIsAdding(!isAdding)}>
+          {isAdding ? "Cancel" : "+ Add Lab Result"}
+        </button>
       </div>
+
+      {isAdding && (
+        <form onSubmit={handleSubmit} className="panel" style={{ marginBottom: "1.2rem", background: "var(--clr-surface-2)", padding: "1rem" }}>
+          <h4 style={{ margin: "0 0 0.8rem" }}>New Lab Result</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem" }}>
+            <div className="field">
+              <label htmlFor="lab-test">Test Name</label>
+              <input
+                id="lab-test"
+                list="common-tests"
+                type="text"
+                placeholder="e.g. Hemoglobin"
+                value={form.testName}
+                onChange={(e) => setForm({ ...form, testName: e.target.value })}
+                required
+              />
+              <datalist id="common-tests">
+                {commonTests.map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+            <div className="field">
+              <label htmlFor="lab-value">Value</label>
+              <input
+                id="lab-value"
+                type="text"
+                placeholder="e.g. 13.5 g/dL"
+                value={form.value}
+                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="lab-range">Reference Range <span className="muted">(optional)</span></label>
+              <input
+                id="lab-range"
+                type="text"
+                placeholder="e.g. 12-16 g/dL"
+                value={form.referenceRange}
+                onChange={(e) => setForm({ ...form, referenceRange: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="lab-date">Recorded At</label>
+              <input
+                id="lab-date"
+                type="date"
+                value={form.recordedAt}
+                onChange={(e) => setForm({ ...form, recordedAt: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: "0.8rem", display: "flex", gap: "0.5rem" }}>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Lab Result"}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
+          </div>
+        </form>
+      )}
+
+      {labs.length === 0 ? (
+        <p className="muted">No lab results recorded yet.</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Test</th>
+                <th>Value</th>
+                <th>Range</th>
+                <th>Status</th>
+                <th>Recorded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {labs.map((lab) => (
+                <tr key={lab.id}>
+                  <td>{lab.testName}</td>
+                  <td><strong>{lab.value}</strong></td>
+                  <td className="muted">{lab.referenceRange ?? "—"}</td>
+                  <td>
+                    <LabStatusBadge status={lab.status} />
+                  </td>
+                  <td>{formatDate(lab.recordedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
