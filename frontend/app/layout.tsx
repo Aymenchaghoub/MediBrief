@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
-
-const poppins = Poppins({
-  weight: ["400", "600", "800"],
-  variable: "--font-poppins",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "MediBrief",
@@ -21,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={poppins.variable}>
+      <body>
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

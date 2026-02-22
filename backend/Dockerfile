@@ -18,4 +18,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 RUN npm prune --omit=dev
 EXPOSE 4000
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --url \"$DATABASE_URL\" && node dist/server.js"]
