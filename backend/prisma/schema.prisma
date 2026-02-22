@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum VitalType {
+  BP
+  GLUCOSE
+  HEART_RATE
+  WEIGHT
+}
+
+model Clinic {
+  id               String   @id @default(uuid())
+  name             String
+  email            String   @unique
+  subscriptionPlan String
+  createdAt        DateTime @default(now())
+
+  users    User[]
+  patients Patient[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  clinicId     String
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultations Consultation[] @relation("DoctorConsultations")
+  auditLogs     AuditLog[]
+
+  @@index([clinicId])
+}
+
+model Patient {
+  id          String   @id @default(uuid())
+  clinicId    String
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime
+  gender      Gender
+  phone       String?
+  createdAt   DateTime @default(now())
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultations Consultation[]
+  vitalRecords  VitalRecord[]
+  labResults    LabResult[]
+  aiSummaries   AISummary[]
+
+  @@index([clinicId])
+  @@index([lastName, firstName])
+}
+
+model Consultation {
+  id        String   @id @default(uuid())
+  patientId String
+  doctorId  String
+  date      DateTime
+  symptoms  String
+  notes     String
+  createdAt DateTime @default(now())
+
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User        @relation("DoctorConsultations", fields: [doctorId], references: [id], onDelete: Restrict)
+  aiSummaries AISummary[]
+
+  @@index([patientId, date])
+  @@index([doctorId])
+}
+
+model VitalRecord {
+  id         String   @id @default(uuid())
+  patientId  String
+  type       VitalType
+  value      String
+  recordedAt DateTime
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, type, recordedAt])
+}
+
+model LabResult {
+  id             String   @id @default(uuid())
+  patientId      String
+  testName       String
+  value          String
+  referenceRange String?
+  recordedAt     DateTime
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, recordedAt])
+}
+
+model AISummary {
+  id             String   @id @default(uuid())
+  patientId      String
+  consultationId String?
+  summaryText    String
+  riskFlags      Json
+  createdAt      DateTime @default(now())
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, createdAt])
+  @@index([consultationId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  timestamp  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([entityType, entityId])
+}
