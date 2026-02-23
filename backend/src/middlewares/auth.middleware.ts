@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 
-export type AuthRole = "ADMIN" | "DOCTOR";
+export type AuthRole = "ADMIN" | "DOCTOR" | "PATIENT";
 
 export interface AuthUser {
   id: string;

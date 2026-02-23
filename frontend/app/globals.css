@@ -614,3 +614,143 @@ a:focus-visible {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Patient Portal                                                     */
+/* ------------------------------------------------------------------ */
+
+.portal-sidebar {
+  background: linear-gradient(180deg, #0d1a2e 0%, #132240 100%);
+}
+
+.portal-topbar {
+  background: #0d1a2e;
+}
+
+.portal-summary-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.9rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.portal-summary-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.portal-summary-card:hover {
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+}
+
+.portal-appointment-card {
+  border-left: 3px solid var(--primary);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Empty State                                                        */
+/* ------------------------------------------------------------------ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.empty-state-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+  opacity: 0.75;
+  filter: grayscale(30%);
+}
+
+.empty-state-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.empty-state-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 32ch;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mobile: sidebar overlay                                            */
+/* ------------------------------------------------------------------ */
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .sidebar-overlay-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Keep logout button visible on mobile */
+  .topbar-actions .btn {
+    display: inline-flex !important;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.7rem;
+  }
+
+  /* Smaller stat cards on mobile */
+  .grid-4 {
+    gap: 0.5rem;
+  }
+
+  .stat-card {
+    padding: 0.65rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-content {
+    padding: 0.8rem !important;
+  }
+}

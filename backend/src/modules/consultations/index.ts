@@ -94,7 +94,7 @@ consultationsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), asyn
   const { cursor, limit } = parsed.data;
 
   const consultations = await prisma.consultation.findMany({
-    where: { patientId: parsedParams.data.patientId },
+    where: { patientId: parsedParams.data.patientId, deletedAt: null },
     orderBy: { date: "desc" },
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

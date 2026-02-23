@@ -1,4 +1,4 @@
-import { getToken } from "./auth";
+import { getToken, getPatientToken } from "./auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -46,5 +46,36 @@ export async function apiFetch<T>(path: string, options?: ApiFetchOptions): Prom
     return undefined as T;
   }
 
+  return response.json() as Promise<T>;
+}
+
+/**
+ * Convenience wrapper for patient-portal API calls.
+ * Automatically attaches the patient JWT.
+ */
+export async function portalFetch<T>(path: string, options?: Omit<ApiFetchOptions, "auth">): Promise<T> {
+  const token = getPatientToken();
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    let message = `API request failed: ${response.status}`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      message = `API request failed: ${response.status}`;
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

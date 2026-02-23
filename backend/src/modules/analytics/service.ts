@@ -114,7 +114,7 @@ export function toNumericSeries(values: string[]) {
 }
 
 export function calculateZScoreAnomalies(values: number[], threshold = 2): ZScoreAnomaly[] {
-  if (values.length < 3) {
+  if (values.length < 5) {
     return [];
   }
 

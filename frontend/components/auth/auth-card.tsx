@@ -170,6 +170,13 @@ export function AuthCard() {
             </button>
           </div>
         </form>
+
+        <p className="muted" style={{ marginTop: "1rem", fontSize: "0.85rem" }}>
+          Are you a patient?{" "}
+          <a href="/patient-auth" style={{ color: "var(--primary-hover)", textDecoration: "underline" }}>
+            Patient portal →
+          </a>
+        </p>
       </div>
     </section>
   );

@@ -36,21 +36,21 @@ analyticsRouter.get("/patient/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), 
 
   const [vitals, labs, latestSummary, recentConsultations] = await Promise.all([
     prisma.vitalRecord.findMany({
-      where: { patientId: patient.id },
+      where: { patientId: patient.id, deletedAt: null },
       orderBy: { recordedAt: "asc" },
       take: 200,
     }),
     prisma.labResult.findMany({
-      where: { patientId: patient.id },
+      where: { patientId: patient.id, deletedAt: null },
       orderBy: { recordedAt: "desc" },
       take: 50,
     }),
     prisma.aISummary.findFirst({
-      where: { patientId: patient.id },
+      where: { patientId: patient.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
     }),
     prisma.consultation.findMany({
-      where: { patientId: patient.id },
+      where: { patientId: patient.id, deletedAt: null },
       orderBy: { date: "desc" },
       take: 10,
       select: { symptoms: true },

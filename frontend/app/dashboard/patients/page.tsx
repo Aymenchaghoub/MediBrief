@@ -14,6 +14,7 @@ interface Patient {
   dateOfBirth: string;
   gender: "MALE" | "FEMALE" | "OTHER";
   phone: string | null;
+  passwordHash?: string | null;
 }
 
 interface CreatePatientPayload {
@@ -37,6 +38,8 @@ export default function PatientsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [form, setForm] = useState<CreatePatientPayload>({
     firstName: "",
     lastName: "",
@@ -78,6 +81,24 @@ export default function PatientsPage() {
   useEffect(() => {
     loadPatients();
   }, [loadPatients]);
+
+  async function handleInvite(patientId: string) {
+    setInvitingId(patientId);
+    try {
+      const res = await apiFetch<{ inviteToken: string; patientName: string }>(
+        `/patients/${patientId}/invite`,
+        { method: "POST", auth: true },
+      );
+      const link = `${window.location.origin}/patient-auth?token=${res.inviteToken}`;
+      setInviteLink(link);
+      await navigator.clipboard.writeText(link);
+      pushToast(`Invite link for ${res.patientName} copied to clipboard!`, "success");
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : "Unable to generate invite", "error");
+    } finally {
+      setInvitingId(null);
+    }
+  }
 
   async function handleCreatePatient(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,21 +225,22 @@ export default function PatientsPage() {
                 <th>Date of Birth</th>
                 <th>Gender</th>
                 <th>Phone</th>
+                <th>Portal</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={5}>Loading patients...</td>
+                  <td colSpan={6}>Loading patients...</td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} role="alert">{error}</td>
+                  <td colSpan={6} role="alert">{error}</td>
                 </tr>
               ) : patients.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>No patients found in this clinic.</td>
+                  <td colSpan={6}>No patients found in this clinic.</td>
                 </tr>
               ) : (
                 patients.map((patient) => (
@@ -227,6 +249,21 @@ export default function PatientsPage() {
                     <td>{formatDate(patient.dateOfBirth)}</td>
                     <td>{patient.gender}</td>
                     <td>{patient.phone ?? "-"}</td>
+                    <td>
+                      {patient.passwordHash ? (
+                        <span className="badge badge-safe">Active</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ fontSize: "0.78rem", padding: "0.25rem 0.55rem" }}
+                          disabled={invitingId === patient.id}
+                          onClick={() => handleInvite(patient.id)}
+                        >
+                          {invitingId === patient.id ? "…" : "Invite"}
+                        </button>
+                      )}
+                    </td>
                     <td><span className="badge badge-safe">Tracked</span></td>
                   </tr>
                 ))
@@ -240,6 +277,36 @@ export default function PatientsPage() {
             <button className="btn btn-secondary" onClick={loadMore} disabled={isLoadingMore}>
               {isLoadingMore ? "Loading..." : "Load More"}
             </button>
+          </div>
+        )}
+
+        {inviteLink && (
+          <div className="panel" style={{ marginTop: "1rem", borderLeft: "3px solid var(--primary)" }}>
+            <p style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: "0.3rem" }}>
+              Invite Link Generated
+            </p>
+            <p className="muted" style={{ fontSize: "0.82rem", wordBreak: "break-all" }}>{inviteLink}</p>
+            <div className="button-row" style={{ marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: "0.78rem" }}
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteLink);
+                  pushToast("Link copied!", "success");
+                }}
+              >
+                Copy Again
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: "0.78rem" }}
+                onClick={() => setInviteLink(null)}
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
       </section>

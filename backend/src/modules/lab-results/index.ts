@@ -15,6 +15,7 @@ const createLabSchema = z.object({
   patientId: z.string().uuid("Invalid patient id"),
   testName: z.string().min(1).max(120),
   value: z.string().min(1).max(120),
+  unit: z.string().max(20).optional(),
   referenceRange: z.string().max(120).optional(),
   recordedAt: z.coerce.date(),
 });
@@ -42,11 +43,14 @@ labsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
   }
 
   try {
+    const numericValue = Number.parseFloat(parsed.data.value);
     const lab = await prisma.labResult.create({
       data: {
         patientId: parsed.data.patientId,
         testName: parsed.data.testName,
         value: parsed.data.value,
+        numericValue: Number.isFinite(numericValue) ? numericValue : null,
+        unit: parsed.data.unit || "",
         referenceRange: parsed.data.referenceRange,
         recordedAt: parsed.data.recordedAt,
       },
@@ -83,7 +87,7 @@ labsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, r
   }
 
   const records = await prisma.labResult.findMany({
-    where: { patientId: parsedParams.data.patientId },
+    where: { patientId: parsedParams.data.patientId, deletedAt: null },
     orderBy: { recordedAt: "desc" },
   });
 

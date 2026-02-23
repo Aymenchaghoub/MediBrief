@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { roleMiddleware } from "../../middlewares/role.middleware";
@@ -161,6 +162,49 @@ patientsRouter.put("/:id", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res)
   } catch {
     return res.status(500).json({ message: "Unable to update patient" });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/*  Generate portal invite link                                        */
+/* ------------------------------------------------------------------ */
+
+patientsRouter.post("/:id/invite", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => {
+  if (!req.clinicId || !req.user?.id) {
+    return res.status(403).json({ message: "Tenant context missing" });
+  }
+
+  const parsedParams = patientIdSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    return res.status(400).json({ message: "Invalid patient id", errors: parsedParams.error.flatten() });
+  }
+
+  const patient = await prisma.patient.findFirst({
+    where: { id: parsedParams.data.id, clinicId: req.clinicId, isArchived: false },
+  });
+
+  if (!patient) {
+    return res.status(404).json({ message: "Patient not found" });
+  }
+
+  if (patient.passwordHash) {
+    return res.status(409).json({ message: "Patient already has portal access" });
+  }
+
+  const inviteToken = crypto.randomUUID();
+  const inviteExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+
+  await prisma.patient.update({
+    where: { id: patient.id },
+    data: { inviteToken, inviteExpiresAt },
+  });
+
+  await writePatientAuditLog(req.user.id, "PATIENT_INVITE", patient.id);
+
+  return res.status(200).json({
+    inviteToken,
+    inviteExpiresAt,
+    patientName: `${patient.firstName} ${patient.lastName}`,
+  });
 });
 
 patientsRouter.delete("/:id", roleMiddleware(["ADMIN"]), async (req, res) => {

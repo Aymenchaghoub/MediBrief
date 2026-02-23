@@ -15,6 +15,7 @@ const createVitalSchema = z.object({
   patientId: z.string().uuid("Invalid patient id"),
   type: z.enum(["BP", "GLUCOSE", "HEART_RATE", "WEIGHT"]),
   value: z.string().min(1).max(100),
+  unit: z.string().max(20).optional(),
   recordedAt: z.coerce.date(),
 });
 
@@ -41,11 +42,20 @@ vitalsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => 
   }
 
   try {
+    const numericValue = Number.parseFloat(parsed.data.value);
+    const defaultUnits: Record<string, string> = {
+      BP: "mmHg",
+      GLUCOSE: "mg/dL",
+      HEART_RATE: "bpm",
+      WEIGHT: "kg",
+    };
     const vital = await prisma.vitalRecord.create({
       data: {
         patientId: parsed.data.patientId,
         type: parsed.data.type,
         value: parsed.data.value,
+        numericValue: Number.isFinite(numericValue) ? numericValue : null,
+        unit: parsed.data.unit || defaultUnits[parsed.data.type] || "",
         recordedAt: parsed.data.recordedAt,
       },
     });
@@ -81,7 +91,7 @@ vitalsRouter.get("/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]), async (req,
   }
 
   const records = await prisma.vitalRecord.findMany({
-    where: { patientId: parsedParams.data.patientId },
+    where: { patientId: parsedParams.data.patientId, deletedAt: null },
     orderBy: { recordedAt: "desc" },
   });
 

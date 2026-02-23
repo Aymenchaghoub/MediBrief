@@ -60,9 +60,9 @@ async function getStructuredInputWithCache(data: GenerateSummaryJobData) {
   }
 
   const [vitals, labs, consultations] = await Promise.all([
-    prisma.vitalRecord.findMany({ where: { patientId: data.patientId }, orderBy: { recordedAt: "desc" }, take: 20 }),
-    prisma.labResult.findMany({ where: { patientId: data.patientId }, orderBy: { recordedAt: "desc" }, take: 20 }),
-    prisma.consultation.findMany({ where: { patientId: data.patientId }, orderBy: { date: "desc" }, take: 10 }),
+    prisma.vitalRecord.findMany({ where: { patientId: data.patientId, deletedAt: null }, orderBy: { recordedAt: "desc" }, take: 20 }),
+    prisma.labResult.findMany({ where: { patientId: data.patientId, deletedAt: null }, orderBy: { recordedAt: "desc" }, take: 20 }),
+    prisma.consultation.findMany({ where: { patientId: data.patientId, deletedAt: null }, orderBy: { date: "desc" }, take: 10 }),
   ]);
 
   const structuredInput = buildStructuredInput(patient, vitals, labs, consultations);

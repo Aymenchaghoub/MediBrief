@@ -288,11 +288,13 @@ function VitalsTab({ trends, patientId, onRefresh }: { trends: VitalTrend[]; pat
   const [form, setForm] = useState({ type: "BP", value: "", recordedAt: new Date().toISOString().slice(0, 10) });
 
   const vitalTypes = [
-    { value: "BP", label: "Blood Pressure" },
-    { value: "GLUCOSE", label: "Glucose" },
-    { value: "HEART_RATE", label: "Heart Rate" },
-    { value: "WEIGHT", label: "Weight" },
+    { value: "BP", label: "Blood Pressure", unit: "mmHg" },
+    { value: "GLUCOSE", label: "Glucose", unit: "mg/dL" },
+    { value: "HEART_RATE", label: "Heart Rate", unit: "bpm" },
+    { value: "WEIGHT", label: "Weight", unit: "kg" },
   ];
+
+  const currentUnit = vitalTypes.find((vt) => vt.value === form.type)?.unit || "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -306,6 +308,7 @@ function VitalsTab({ trends, patientId, onRefresh }: { trends: VitalTrend[]; pat
           patientId,
           type: form.type,
           value: form.value.trim(),
+          unit: currentUnit,
           recordedAt: new Date(form.recordedAt).toISOString(),
         }),
       });
@@ -342,7 +345,7 @@ function VitalsTab({ trends, patientId, onRefresh }: { trends: VitalTrend[]; pat
               </select>
             </div>
             <div className="field">
-              <label htmlFor="vital-value">Value</label>
+              <label htmlFor="vital-value">Value <span className="muted">({currentUnit})</span></label>
               <input
                 id="vital-value"
                 type="text"
@@ -402,7 +405,7 @@ function LabsTab({ labs, patientId, onRefresh }: { labs: LabFlag[]; patientId: s
   const { pushToast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [form, setForm] = useState({ testName: "", value: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ testName: "", value: "", unit: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -416,12 +419,13 @@ function LabsTab({ labs, patientId, onRefresh }: { labs: LabFlag[]; patientId: s
           patientId,
           testName: form.testName.trim(),
           value: form.value.trim(),
+          ...(form.unit.trim() ? { unit: form.unit.trim() } : {}),
           ...(form.referenceRange.trim() ? { referenceRange: form.referenceRange.trim() } : {}),
           recordedAt: new Date(form.recordedAt).toISOString(),
         }),
       });
       pushToast("Lab result recorded successfully", "success");
-      setForm({ testName: "", value: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
+      setForm({ testName: "", value: "", unit: "", referenceRange: "", recordedAt: new Date().toISOString().slice(0, 10) });
       setIsAdding(false);
       onRefresh();
     } catch (err) {
@@ -468,10 +472,20 @@ function LabsTab({ labs, patientId, onRefresh }: { labs: LabFlag[]; patientId: s
               <input
                 id="lab-value"
                 type="text"
-                placeholder="e.g. 13.5 g/dL"
+                placeholder="e.g. 13.5"
                 value={form.value}
                 onChange={(e) => setForm({ ...form, value: e.target.value })}
                 required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="lab-unit">Unit <span className="muted">(optional)</span></label>
+              <input
+                id="lab-unit"
+                type="text"
+                placeholder="e.g. g/dL, mg/dL"
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
               />
             </div>
             <div className="field">

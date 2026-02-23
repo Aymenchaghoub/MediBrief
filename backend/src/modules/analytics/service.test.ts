@@ -11,11 +11,13 @@ describe("analytics service", () => {
 
   it("builds vitals analytics with trend and anomaly count", () => {
     const vitals: VitalRecord[] = [
-      { id: "1", patientId: "p1", type: "BP", value: "120", recordedAt: new Date("2026-01-01") },
-      { id: "2", patientId: "p1", type: "BP", value: "122", recordedAt: new Date("2026-01-02") },
-      { id: "3", patientId: "p1", type: "BP", value: "165", recordedAt: new Date("2026-01-03") },
-      { id: "4", patientId: "p1", type: "GLUCOSE", value: "90", recordedAt: new Date("2026-01-01") },
-      { id: "5", patientId: "p1", type: "GLUCOSE", value: "110", recordedAt: new Date("2026-01-02") },
+      { id: "1", patientId: "p1", type: "BP", value: "120", numericValue: 120, unit: "mmHg", recordedAt: new Date("2026-01-01"), deletedAt: null },
+      { id: "2", patientId: "p1", type: "BP", value: "122", numericValue: 122, unit: "mmHg", recordedAt: new Date("2026-01-02"), deletedAt: null },
+      { id: "3", patientId: "p1", type: "BP", value: "121", numericValue: 121, unit: "mmHg", recordedAt: new Date("2026-01-03"), deletedAt: null },
+      { id: "4", patientId: "p1", type: "BP", value: "123", numericValue: 123, unit: "mmHg", recordedAt: new Date("2026-01-04"), deletedAt: null },
+      { id: "5", patientId: "p1", type: "BP", value: "165", numericValue: 165, unit: "mmHg", recordedAt: new Date("2026-01-05"), deletedAt: null },
+      { id: "6", patientId: "p1", type: "GLUCOSE", value: "90", numericValue: 90, unit: "mg/dL", recordedAt: new Date("2026-01-01"), deletedAt: null },
+      { id: "7", patientId: "p1", type: "GLUCOSE", value: "110", numericValue: 110, unit: "mg/dL", recordedAt: new Date("2026-01-02"), deletedAt: null },
     ];
 
     const analytics = buildPatientVitalsAnalytics(vitals);

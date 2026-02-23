@@ -44,6 +44,23 @@ function toNumericValues(values: string[]) {
     .filter((entry): entry is number => entry !== null);
 }
 
+/**
+ * Physiologically impossible bounds for pre-AI outlier filtering.
+ * Values outside these ranges are likely data-entry errors (typos).
+ */
+const VITAL_BOUNDS: Record<string, { min: number; max: number }> = {
+  BP:         { min: 40, max: 300 },
+  GLUCOSE:    { min: 10, max: 800 },
+  HEART_RATE: { min: 20, max: 300 },
+  WEIGHT:     { min: 0.5, max: 500 },
+};
+
+function filterOutliers(values: number[], vitalType?: string): number[] {
+  if (!vitalType || !VITAL_BOUNDS[vitalType]) return values;
+  const { min, max } = VITAL_BOUNDS[vitalType];
+  return values.filter((v) => v >= min && v <= max);
+}
+
 function firstLastDelta(values: number[]) {
   if (values.length < 2) {
     return 0;
@@ -53,7 +70,7 @@ function firstLastDelta(values: number[]) {
 }
 
 function calculateLatestZScore(values: number[]) {
-  if (values.length < 4) {
+  if (values.length < 7) {
     return null;
   }
 
@@ -77,18 +94,18 @@ export function buildStructuredInput(
   labs: LabResult[],
   consultations: Consultation[],
 ): StructuredClinicalInput {
-  const bpTrend = toNumericValues(
+  const bpTrend = filterOutliers(toNumericValues(
     vitals.filter((vital) => vital.type === "BP").map((vital) => vital.value).slice(0, 10),
-  );
-  const glucoseTrend = toNumericValues(
+  ), "BP");
+  const glucoseTrend = filterOutliers(toNumericValues(
     vitals.filter((vital) => vital.type === "GLUCOSE").map((vital) => vital.value).slice(0, 10),
-  );
-  const heartRateTrend = toNumericValues(
+  ), "GLUCOSE");
+  const heartRateTrend = filterOutliers(toNumericValues(
     vitals.filter((vital) => vital.type === "HEART_RATE").map((vital) => vital.value).slice(0, 10),
-  );
-  const weightTrend = toNumericValues(
+  ), "HEART_RATE");
+  const weightTrend = filterOutliers(toNumericValues(
     vitals.filter((vital) => vital.type === "WEIGHT").map((vital) => vital.value).slice(0, 10),
-  );
+  ), "WEIGHT");
 
   return {
     age: calculateAge(patient.dateOfBirth),

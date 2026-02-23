@@ -170,7 +170,7 @@ aiRouter.get("/summaries/patient/:patientId", roleMiddleware(["ADMIN", "DOCTOR"]
   }
 
   const summaries = await prisma.aISummary.findMany({
-    where: { patientId: patient.id },
+    where: { patientId: patient.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
@@ -243,17 +243,17 @@ aiRouter.post(
     // Gather patient context
     const [vitals, labs, consultations] = await Promise.all([
       prisma.vitalRecord.findMany({
-        where: { patientId },
+        where: { patientId, deletedAt: null },
         orderBy: { recordedAt: "desc" },
         take: 20,
       }),
       prisma.labResult.findMany({
-        where: { patientId },
+        where: { patientId, deletedAt: null },
         orderBy: { recordedAt: "desc" },
         take: 15,
       }),
       prisma.consultation.findMany({
-        where: { patientId },
+        where: { patientId, deletedAt: null },
         orderBy: { date: "desc" },
         take: 10,
       }),

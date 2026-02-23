@@ -50,8 +50,11 @@ function makeLab(overrides: Partial<LabResult> = {}): LabResult {
     patientId: "p1",
     testName: "Glucose",
     value: "95",
+    numericValue: 95,
+    unit: "mg/dL",
     referenceRange: "70-100",
     recordedAt: new Date("2026-01-15"),
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -102,15 +105,18 @@ describe("flagAllLabResults", () => {
 /* ------------------------------------------------------------------ */
 
 function makeVitals(anomalyCount: number): ReturnType<typeof buildPatientVitalsAnalytics> {
-  // Build enough data points to produce the desired anomaly count
+  // Build enough data points to produce the desired anomaly count (min 5 for z-score)
   const records: VitalRecord[] = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     records.push({
       id: `v${i}`,
       patientId: "p1",
       type: "BP",
-      value: i < 4 ? "120" : "200",
+      value: i < 5 ? "120" : "200",
+      numericValue: i < 5 ? 120 : 200,
+      unit: "mmHg",
       recordedAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}`),
+      deletedAt: null,
     });
   }
 

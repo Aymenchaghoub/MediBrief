@@ -56,15 +56,19 @@ model User {
 }
 
 model Patient {
-  id          String   @id @default(uuid())
-  clinicId    String
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime
-  gender      Gender
-  phone       String?
-  isArchived  Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id              String    @id @default(uuid())
+  clinicId        String
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  phone           String?
+  email           String?   @unique
+  passwordHash    String?
+  inviteToken     String?   @unique
+  inviteExpiresAt DateTime?
+  isArchived      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
 
   clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   consultations Consultation[]
@@ -77,15 +81,16 @@ model Patient {
 }
 
 model Consultation {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   patientId String
   doctorId  String
   date      DateTime
   symptoms  String
   notes     String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
-  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
   doctor      User        @relation("DoctorConsultations", fields: [doctorId], references: [id], onDelete: Restrict)
   aiSummaries AISummary[]
 
@@ -94,39 +99,46 @@ model Consultation {
 }
 
 model VitalRecord {
-  id         String   @id @default(uuid())
-  patientId  String
-  type       VitalType
-  value      String
-  recordedAt DateTime
+  id            String    @id @default(uuid())
+  patientId     String
+  type          VitalType
+  value         String
+  numericValue  Float?
+  unit          String    @default("")
+  recordedAt    DateTime
+  deletedAt     DateTime?
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
   @@index([patientId, type, recordedAt])
 }
 
 model LabResult {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   patientId      String
   testName       String
   value          String
+  numericValue   Float?
+  unit           String    @default("")
   referenceRange String?
   recordedAt     DateTime
+  deletedAt      DateTime?
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
   @@index([patientId, recordedAt])
 }
 
 model AISummary {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   patientId      String
   consultationId String?
   summaryText    String
   riskFlags      Json
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
 
-  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
   consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
 
   @@index([patientId, createdAt])
