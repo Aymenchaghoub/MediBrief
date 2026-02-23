@@ -1,0 +1,45 @@
+services:
+  # ─── Express Backend ────────────────────────────────────────────────
+  - type: web
+    name: medibrief-backend
+    runtime: node
+    region: ohio
+    plan: starter
+    buildCommand: npm ci && npm run prisma:generate && npm run build
+    startCommand: npx prisma db push --accept-data-loss && node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medibrief-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false  # Set manually — use Upstash Redis URL
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: CORS_ORIGIN
+        sync: false  # Set to your Vercel frontend URL
+      - key: REQUIRE_HTTPS
+        value: "true"
+      - key: SWAGGER_ENABLED
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false  # Optional — set if you have an OpenAI key
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com/v1
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+    rootDir: backend
+
+databases:
+  # ─── PostgreSQL ─────────────────────────────────────────────────────
+  - name: medibrief-db
+    plan: starter
+    region: ohio
+    postgresMajorVersion: "16"

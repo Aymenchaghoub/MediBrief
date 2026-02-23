@@ -1,9 +1,16 @@
 import IORedis from "ioredis";
 import { env } from "./env";
 
+/**
+ * Detect TLS from URL scheme (rediss://) — required for Upstash and other
+ * managed Redis providers that mandate encrypted connections.
+ */
+const useTls = env.REDIS_URL.startsWith("rediss://");
+
 const redisOptions = {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  ...(useTls ? { tls: { rejectUnauthorized: false } } : {}),
 } as const;
 
 export const redisCacheClient = new IORedis(env.REDIS_URL, redisOptions);

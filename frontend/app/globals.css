@@ -754,3 +754,325 @@ a:focus-visible {
     padding: 0.8rem !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  AI Summary — Streaming Output                                      */
+/* ------------------------------------------------------------------ */
+
+.ai-summary-content {
+  margin-bottom: 0.8rem;
+}
+
+.ai-summary-output {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.2rem;
+  max-height: 520px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.ai-summary-placeholder {
+  opacity: 0.65;
+}
+
+.ai-disclaimer {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Streaming Markdown — rendered output styles */
+.streaming-markdown {
+  font-size: 0.92rem;
+  line-height: 1.72;
+  color: var(--text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.streaming-markdown h1,
+.streaming-markdown h2,
+.streaming-markdown h3 {
+  margin-top: 1.1rem;
+  margin-bottom: 0.35rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.streaming-markdown h1 { font-size: 1.2rem; }
+.streaming-markdown h2 { font-size: 1.08rem; }
+.streaming-markdown h3 { font-size: 0.98rem; }
+
+.streaming-markdown p {
+  margin-bottom: 0.55rem;
+}
+
+.streaming-markdown ul,
+.streaming-markdown ol {
+  padding-left: 1.3rem;
+  margin-bottom: 0.55rem;
+}
+
+.streaming-markdown li {
+  margin-bottom: 0.2rem;
+}
+
+.streaming-markdown li::marker {
+  color: var(--primary);
+}
+
+.streaming-markdown strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.streaming-markdown em {
+  color: var(--muted);
+}
+
+.streaming-markdown code {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.35rem;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.85em;
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+.streaming-markdown pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin-bottom: 0.55rem;
+}
+
+.streaming-markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.streaming-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.55rem;
+  font-size: 0.88rem;
+}
+
+.streaming-markdown th,
+.streaming-markdown td {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.streaming-markdown th {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--primary-hover);
+  font-weight: 600;
+}
+
+.streaming-markdown blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 0.9rem;
+  margin: 0.5rem 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.streaming-markdown hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0.8rem 0;
+}
+
+/* Blinking cursor at end of streaming text */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--primary);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: cursorBlink 0.8s step-end infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  AI Summary — Skeleton Loader                                       */
+/* ------------------------------------------------------------------ */
+
+.skeleton-container {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1.2rem;
+  min-height: 200px;
+}
+
+.skeleton-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.skeleton-status-icon {
+  font-size: 1.3rem;
+}
+
+.skeleton-status-label {
+  font-size: 0.9rem;
+  color: var(--primary-hover);
+  font-weight: 500;
+}
+
+.skeleton-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pulseDot 1.4s ease-in-out infinite;
+  margin-left: auto;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.skeleton-lines {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(96, 165, 250, 0.12) 40%,
+    rgba(139, 92, 246, 0.1) 60%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.skeleton-line-header {
+  width: 45%;
+  height: 18px;
+  border-radius: 9px;
+}
+
+.skeleton-line-full {
+  width: 100%;
+}
+
+.skeleton-line-medium {
+  width: 72%;
+}
+
+.skeleton-line-short {
+  width: 38%;
+}
+
+.skeleton-spacer {
+  height: 6px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  AI Summary — Button Spinner                                        */
+/* ------------------------------------------------------------------ */
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  AI Summary — History sidebar                                       */
+/* ------------------------------------------------------------------ */
+
+.ai-history-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+}
+
+.ai-history-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ai-history-item {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  transition: all 0.15s ease;
+}
+
+.ai-history-item:hover {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.ai-history-item-active {
+  border-color: var(--primary) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+.ai-history-date {
+  font-size: 0.78rem;
+  color: var(--primary-hover);
+  font-weight: 500;
+}
+
+.ai-history-preview {
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

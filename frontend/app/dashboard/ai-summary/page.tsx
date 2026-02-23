@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SectionHeader } from "@/components/ui/section-header";
 import { useToast } from "@/components/ui/toast-provider";
+import { StreamingMarkdown } from "@/components/ai/streaming-markdown";
+import { SkeletonLoader } from "@/components/ai/skeleton-loader";
 import { apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+
+/* ── types ─────────────────────────────────────────────────────── */
 
 interface Patient {
   id: string;
@@ -31,20 +35,44 @@ interface SummaryResponse {
   createdAt: string;
 }
 
+interface HistorySummary {
+  id: string;
+  summaryText: string;
+  createdAt: string;
+}
+
+/* ── constants ─────────────────────────────────────────────────── */
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+
+const PLACEHOLDER_TEXT =
+  "Select a patient and click **Generate New Summary** to create an AI-assisted clinical monitoring report.\n\nThe summary will stream in real-time — analyzing vitals, lab results, and consultation history.";
+
+/* ── component ─────────────────────────────────────────────────── */
 
 export default function AiSummaryPage() {
   const { pushToast } = useToast();
+
+  /* patients */
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState("");
-  const [summaryText, setSummaryText] = useState<string>(
-    "Generate a summary to display AI-assisted clinical monitoring insights.",
-  );
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
-  const [hasGeneratedSummary, setHasGeneratedSummary] = useState(false);
+
+  /* generation */
+  const [isGenerating, setIsGenerating] = useState(false);
   const [jobState, setJobState] = useState<string | null>(null);
+  const [summaryText, setSummaryText] = useState("");
+  const [hasGeneratedSummary, setHasGeneratedSummary] = useState(false);
+  const [streamImmediate, setStreamImmediate] = useState(true);
+
+  /* history */
+  const [history, setHistory] = useState<HistorySummary[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+
+  /* exports */
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  /* SSE ref */
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const closeStream = useCallback(() => {
@@ -57,6 +85,8 @@ export default function AiSummaryPage() {
   useEffect(() => {
     return () => closeStream();
   }, [closeStream]);
+
+  /* ── load patients ────────────────────────────────────────────── */
 
   useEffect(() => {
     apiFetch<{ data: Patient[]; nextCursor: string | null }>("/patients?limit=100", { auth: true })
@@ -71,6 +101,20 @@ export default function AiSummaryPage() {
       })
       .finally(() => setIsLoadingPatients(false));
   }, [pushToast]);
+
+  /* ── load summary history when patient changes ────────────────── */
+
+  useEffect(() => {
+    if (!selectedPatientId) {
+      setHistory([]);
+      return;
+    }
+    apiFetch<HistorySummary[]>(`/ai/summaries/patient/${selectedPatientId}`, { auth: true })
+      .then((data) => setHistory(data))
+      .catch(() => setHistory([]));
+  }, [selectedPatientId]);
+
+  /* ── SSE stream ───────────────────────────────────────────────── */
 
   const startSSEStream = useCallback(
     (jobId: string) => {
@@ -89,22 +133,29 @@ export default function AiSummaryPage() {
           if (data.state === "completed" && data.summaryId) {
             closeStream();
             const summary = await apiFetch<SummaryResponse>(`/ai/summaries/${data.summaryId}`, { auth: true });
+            setStreamImmediate(false); // enable typewriter animation
             setSummaryText(summary.summaryText);
             setHasGeneratedSummary(true);
             setIsGenerating(false);
             setJobState(null);
             pushToast("Clinical summary generated.", "success");
+
+            // Refresh history
+            apiFetch<HistorySummary[]>(`/ai/summaries/patient/${selectedPatientId}`, { auth: true })
+              .then((data) => setHistory(data))
+              .catch(() => {});
           } else if (data.state === "failed") {
             closeStream();
             const reason = data.failedReason ?? "Unknown error.";
-            setSummaryText(`Summary generation failed: ${reason}`);
+            setStreamImmediate(false);
+            setSummaryText(`## Generation Failed\n\n${reason}`);
             setHasGeneratedSummary(false);
             setIsGenerating(false);
             setJobState(null);
             pushToast("Summary generation failed.", "error");
           } else if (data.state === "timeout") {
             closeStream();
-            setSummaryText("Summary generation timed out. Please try again.");
+            setSummaryText("## Timed Out\n\nSummary generation timed out. Please try again.");
             setIsGenerating(false);
             setJobState(null);
             pushToast("Generation timed out.", "error");
@@ -121,8 +172,10 @@ export default function AiSummaryPage() {
         pushToast("Lost connection to generation stream.", "error");
       };
     },
-    [closeStream, pushToast],
+    [closeStream, pushToast, selectedPatientId],
   );
+
+  /* ── generate ─────────────────────────────────────────────────── */
 
   async function handleGenerate() {
     if (!selectedPatientId) {
@@ -132,8 +185,9 @@ export default function AiSummaryPage() {
 
     setIsGenerating(true);
     setJobState("queued");
-    setSummaryText("Generating clinical summary...");
+    setSummaryText("");
     setHasGeneratedSummary(false);
+    setSelectedHistoryId(null);
 
     try {
       const response = await apiFetch<QueuedResponse>(`/ai/generate-summary/${selectedPatientId}`, {
@@ -144,7 +198,7 @@ export default function AiSummaryPage() {
       startSSEStream(response.jobId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to generate summary.";
-      setSummaryText(message);
+      setSummaryText(`## Error\n\n${message}`);
       setHasGeneratedSummary(false);
       setIsGenerating(false);
       setJobState(null);
@@ -152,20 +206,24 @@ export default function AiSummaryPage() {
     }
   }
 
-  function getSelectedPatientName() {
-    const patient = patients.find((entry) => entry.id === selectedPatientId);
-    if (!patient) {
-      return "patient";
-    }
+  /* ── view a history item ──────────────────────────────────────── */
 
-    return `${patient.firstName}-${patient.lastName}`.toLowerCase();
+  function viewHistorySummary(item: HistorySummary) {
+    setSelectedHistoryId(item.id);
+    setStreamImmediate(true); // no typewriter for history
+    setSummaryText(item.summaryText);
+    setHasGeneratedSummary(true);
+  }
+
+  /* ── exports ──────────────────────────────────────────────────── */
+
+  function getSelectedPatientName() {
+    const patient = patients.find((p) => p.id === selectedPatientId);
+    return patient ? `${patient.firstName}-${patient.lastName}`.toLowerCase() : "patient";
   }
 
   function exportAsText() {
-    if (!summaryText.trim()) {
-      pushToast("No summary content to export.", "error");
-      return;
-    }
+    if (!summaryText.trim()) return pushToast("No summary content to export.", "error");
 
     const blob = new Blob([summaryText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -178,10 +236,7 @@ export default function AiSummaryPage() {
   }
 
   async function exportAsPdf() {
-    if (!summaryText.trim()) {
-      pushToast("No summary content to export.", "error");
-      return;
-    }
+    if (!summaryText.trim()) return pushToast("No summary content to export.", "error");
 
     setIsExportingPdf(true);
     try {
@@ -207,62 +262,69 @@ export default function AiSummaryPage() {
     }
   }
 
-  function renderJobStatus() {
-    if (!jobState) {
-      return null;
-    }
-
-    const labels: Record<string, string> = {
-      queued: "Queued — waiting for worker...",
-      waiting: "Waiting — in queue...",
-      active: "Processing — AI generating summary...",
-      delayed: "Delayed — will retry shortly...",
-    };
-
-    return (
-      <p className="muted" style={{ marginBottom: "0.6rem", fontStyle: "italic" }}>
-        {labels[jobState] ?? `Status: ${jobState}`}
-      </p>
-    );
-  }
+  /* ── render ───────────────────────────────────────────────────── */
 
   return (
     <section className="panel" aria-busy={isGenerating || isLoadingPatients}>
       <SectionHeader
         title="AI Clinical Summary"
-        description="Generated from vitals, lab records, and recent consultations via async BullMQ pipeline."
+        description="Real-time AI-generated monitoring insights from vitals, labs, and consultations via SSE-powered pipeline."
       />
 
+      {/* Patient selector */}
       <div className="field" style={{ marginBottom: "0.9rem" }}>
         <label htmlFor="summary-patient">Patient</label>
         <select
           id="summary-patient"
           value={selectedPatientId}
-          onChange={(event) => setSelectedPatientId(event.target.value)}
+          onChange={(e) => {
+            setSelectedPatientId(e.target.value);
+            setSelectedHistoryId(null);
+            setSummaryText("");
+            setHasGeneratedSummary(false);
+          }}
           disabled={isLoadingPatients || patients.length === 0 || isGenerating}
         >
           <option value="">Select patient</option>
-          {patients.map((patient) => (
-            <option key={patient.id} value={patient.id}>
-              {patient.firstName} {patient.lastName}
+          {patients.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.firstName} {p.lastName}
             </option>
           ))}
         </select>
       </div>
 
-      {!isLoadingPatients && patients.length === 0 ? (
+      {!isLoadingPatients && patients.length === 0 && (
         <p className="muted" style={{ marginBottom: "0.8rem" }}>
           Add a patient first to generate AI summaries.
         </p>
-      ) : null}
+      )}
 
-      {renderJobStatus()}
+      {/* Main content area */}
+      <div className="ai-summary-content">
+        {isGenerating ? (
+          <SkeletonLoader jobState={jobState} />
+        ) : summaryText ? (
+          <div className="ai-summary-output">
+            <StreamingMarkdown
+              content={summaryText}
+              speed={6}
+              immediate={streamImmediate}
+              onComplete={() => setStreamImmediate(true)}
+            />
+          </div>
+        ) : (
+          <div className="ai-summary-output ai-summary-placeholder">
+            <StreamingMarkdown content={PLACEHOLDER_TEXT} immediate />
+          </div>
+        )}
 
-      <div className="panel timeline-item">
-        <p style={{ marginBottom: "0.6rem", whiteSpace: "pre-wrap" }}>{summaryText}</p>
-        <p className="muted">Disclaimer: AI-generated monitoring support only. This is not a diagnosis.</p>
+        <p className="ai-disclaimer muted">
+          Disclaimer: AI-generated monitoring support only. This is not a diagnosis.
+        </p>
       </div>
 
+      {/* Actions */}
       <div className="button-row auth-actions">
         <button
           className="btn btn-primary"
@@ -270,7 +332,14 @@ export default function AiSummaryPage() {
           onClick={handleGenerate}
           disabled={isGenerating || isLoadingPatients || patients.length === 0}
         >
-          {isGenerating ? "Generating..." : "Generate New Summary"}
+          {isGenerating ? (
+            <>
+              <span className="btn-spinner" aria-hidden="true" />
+              Generating...
+            </>
+          ) : (
+            "Generate New Summary"
+          )}
         </button>
         <button className="btn btn-secondary" type="button" onClick={exportAsText} disabled={!hasGeneratedSummary}>
           Export .txt
@@ -284,6 +353,36 @@ export default function AiSummaryPage() {
           {isExportingPdf ? "Exporting PDF..." : "Export .pdf"}
         </button>
       </div>
+
+      {/* Summary history */}
+      {history.length > 0 && (
+        <div className="ai-history" style={{ marginTop: "1.2rem" }}>
+          <h3 className="ai-history-title">Previous Summaries</h3>
+          <div className="ai-history-list">
+            {history.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`ai-history-item ${selectedHistoryId === item.id ? "ai-history-item-active" : ""}`}
+                onClick={() => viewHistorySummary(item)}
+              >
+                <span className="ai-history-date">
+                  {new Date(item.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="ai-history-preview">
+                  {item.summaryText.slice(0, 80).replace(/[#*_]/g, "")}...
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

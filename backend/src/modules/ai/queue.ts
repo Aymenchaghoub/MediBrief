@@ -18,8 +18,11 @@ interface GenerateSummaryJobResult {
 const queueName = "ai-summary-generation";
 const structuredInputTtlSeconds = 60 * 5;
 
+const useTls = env.REDIS_URL.startsWith("rediss://");
+
 const bullConnection = {
   url: env.REDIS_URL,
+  ...(useTls ? { tls: { rejectUnauthorized: false } } : {}),
 };
 
 const aiSummaryQueue = new Queue<GenerateSummaryJobData, GenerateSummaryJobResult, "generate">(queueName, {
