@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "./middlewares/auth.middleware";
+import { authRateLimiter, aiRateLimiter } from "./middlewares/security.middleware";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 import { aiRouter } from "./modules/ai";
 import { analyticsRouter } from "./modules/analytics";
@@ -16,9 +17,9 @@ import { vitalsRouter } from "./modules/vitals";
 
 export const apiRouter = Router();
 
-// Public routes
-apiRouter.use("/auth", authRouter);
-apiRouter.use("/auth", patientAuthRouter);
+// Public routes (with stricter rate limits)
+apiRouter.use("/auth", authRateLimiter, authRouter);
+apiRouter.use("/auth", authRateLimiter, patientAuthRouter);
 
 // Patient portal (has own auth middleware inside)
 apiRouter.use("/portal", portalRouter);
@@ -31,6 +32,6 @@ apiRouter.use("/patients", patientsRouter);
 apiRouter.use("/vitals", vitalsRouter);
 apiRouter.use("/labs", labsRouter);
 apiRouter.use("/consultations", consultationsRouter);
-apiRouter.use("/ai", aiRouter);
+apiRouter.use("/ai", aiRateLimiter, aiRouter);
 apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit", auditRouter);

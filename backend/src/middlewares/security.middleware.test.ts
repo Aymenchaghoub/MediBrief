@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Request } from "express";
-import { isHttpsRequest, shouldRejectInsecureRequest } from "./security.middleware";
+import { isHttpsRequest, shouldRejectInsecureRequest, validateCorsOrigin } from "./security.middleware";
 
 function makeReq(input: Partial<Request>) {
   return input as Request;
@@ -41,5 +41,23 @@ describe("security middleware helpers", () => {
         isHttps: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("validateCorsOrigin", () => {
+  it("allows any origin in development", () => {
+    expect(validateCorsOrigin("http://localhost:3000", "development")).toBe(true);
+    expect(validateCorsOrigin("http://127.0.0.1:3000", "development")).toBe(true);
+  });
+
+  it("rejects localhost origins in production", () => {
+    expect(validateCorsOrigin("http://localhost:3000", "production")).toBe(false);
+    expect(validateCorsOrigin("http://127.0.0.1:3000", "production")).toBe(false);
+    expect(validateCorsOrigin("http://0.0.0.0:3000", "production")).toBe(false);
+  });
+
+  it("allows non-localhost origins in production", () => {
+    expect(validateCorsOrigin("https://app.medibrief.com", "production")).toBe(true);
+    expect(validateCorsOrigin("https://clinic.example.org", "production")).toBe(true);
   });
 });

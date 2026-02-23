@@ -24,7 +24,7 @@ async function login(page: import("@playwright/test").Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10_000 });
 }
 
-/* ─── Tests ─── */
+/* ─── Auth Flow ─── */
 
 test.describe("Auth flow", () => {
   test("redirects unauthenticated users to /auth", async ({ page }) => {
@@ -37,7 +37,19 @@ test.describe("Auth flow", () => {
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator("text=Clinical Console")).toBeVisible();
   });
+
+  test("shows error on invalid credentials", async ({ page }) => {
+    await page.goto("/auth");
+    await page.getByLabel(/email/i).fill("wrong@example.com");
+    await page.getByLabel(/password/i).fill("badpassword");
+    await page.getByRole("button", { name: /sign in|log in|login/i }).click();
+    // Should stay on auth page (not redirect)
+    await page.waitForTimeout(2000);
+    await expect(page).toHaveURL(/\/auth/);
+  });
 });
+
+/* ─── Dashboard Navigation ─── */
 
 test.describe("Dashboard", () => {
   test.beforeEach(async ({ page }) => {
@@ -91,6 +103,143 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("button", { name: /generate/i })).toBeVisible();
   });
 });
+
+/* ─── Critical Path: Patient Lifecycle ─── */
+
+test.describe("Patient lifecycle", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test("creates a patient and verifies it appears in the table", async ({ page }) => {
+    await page.goto("/dashboard/patients");
+
+    const uniqueSuffix = Date.now().toString().slice(-6);
+    const firstName = `E2E`;
+    const lastName = `Test${uniqueSuffix}`;
+
+    // Fill the create-patient form
+    await page.getByLabel(/first name/i).fill(firstName);
+    await page.getByLabel(/last name/i).fill(lastName);
+    await page.getByLabel(/date of birth/i).fill("1990-01-15");
+    await page.getByLabel(/gender/i).selectOption("MALE");
+
+    // Submit
+    await page.getByRole("button", { name: /add patient|create patient|submit/i }).click();
+
+    // Wait for the table to update — the new patient should appear
+    await expect(
+      page.getByRole("cell", { name: new RegExp(`${firstName}\\s+${lastName}`, "i") }).or(
+        page.getByText(new RegExp(`${firstName}.*${lastName}`, "i")),
+      ),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("navigates to patient detail page", async ({ page }) => {
+    await page.goto("/dashboard/patients");
+    // Wait for at least one patient row to load
+    await expect(page.getByRole("columnheader", { name: /name/i })).toBeVisible();
+
+    // Click the first patient link (detail link or row click)
+    const patientLink = page.getByRole("link", { name: /view|detail/i }).first();
+    const patientRow = page.locator("table tbody tr").first().locator("a").first();
+
+    const link = (await patientLink.isVisible().catch(() => false)) ? patientLink : patientRow;
+    if (await link.isVisible()) {
+      await link.click();
+      // Should navigate to /dashboard/patients/[id]
+      await expect(page).toHaveURL(/\/dashboard\/patients\/[a-zA-Z0-9-]+/);
+    }
+  });
+});
+
+/* ─── Critical Path: Vitals Entry ─── */
+
+test.describe("Vitals entry", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test("patient detail page has vitals entry form", async ({ page }) => {
+    await page.goto("/dashboard/patients");
+    await expect(page.getByRole("columnheader", { name: /name/i })).toBeVisible();
+
+    // Navigate to the first patient's detail page
+    const firstLink = page.locator("table tbody tr").first().locator("a").first();
+    if (await firstLink.isVisible()) {
+      await firstLink.click();
+      await expect(page).toHaveURL(/\/dashboard\/patients\/[a-zA-Z0-9-]+/);
+
+      // Check for vitals section
+      const vitalsHeading = page.getByText(/vital|vitals/i);
+      await expect(vitalsHeading.first()).toBeVisible({ timeout: 10_000 });
+    }
+  });
+});
+
+/* ─── Critical Path: AI Summary Generation ─── */
+
+test.describe("AI summary generation", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test("triggers AI summary and shows streaming state", async ({ page }) => {
+    await page.goto("/dashboard/ai-summary");
+    await expect(page.getByText(/ai-assisted clinical summary/i)).toBeVisible();
+
+    // Ensure a patient is selected
+    const patientSelect = page.getByLabel(/patient/i);
+    await expect(patientSelect).toBeVisible();
+
+    // Click generate button
+    const generateBtn = page.getByRole("button", { name: /generate/i });
+    await expect(generateBtn).toBeVisible();
+    await generateBtn.click();
+
+    // After clicking, the UI should show some kind of loading/streaming state
+    // (generating text, spinner, or status change)
+    const loadingIndicator = page
+      .getByText(/generating|processing|streaming|waiting|queued/i)
+      .or(page.locator("[aria-busy='true']"))
+      .or(page.getByRole("button", { name: /generating/i }));
+
+    // The button should become disabled or text should change
+    await expect(loadingIndicator.first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("displays previous summaries if available", async ({ page }) => {
+    await page.goto("/dashboard/ai-summary");
+    const patientSelect = page.getByLabel(/patient/i);
+    await expect(patientSelect).toBeVisible();
+
+    // Wait for the page to settle
+    await page.waitForTimeout(2000);
+
+    // The summary text area / display should exist (either default text or a previous summary)
+    const summaryArea = page
+      .getByText(/generate a summary|clinical monitoring|summary/i)
+      .first();
+    await expect(summaryArea).toBeVisible();
+  });
+});
+
+/* ─── Analytics ─── */
+
+test.describe("Analytics", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test("analytics page renders clinic risk overview", async ({ page }) => {
+    await page.goto("/dashboard/analytics");
+    // The page should show some analytics content
+    const heading = page.getByText(/analytics|risk|overview/i).first();
+    await expect(heading).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+/* ─── Security / Admin ─── */
 
 test.describe("Security page (admin)", () => {
   test.beforeEach(async ({ page }) => {

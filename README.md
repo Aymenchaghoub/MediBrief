@@ -8,7 +8,7 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 - Backend API (Express, TypeScript, Prisma)
 - PostgreSQL data model for clinic-scoped healthcare records
 - AI summary generation with OpenAI-compatible providers
-- Asynchronous AI jobs (BullMQ + Redis) with polling
+- Asynchronous AI jobs (BullMQ + Redis) with **Server-Sent Events (SSE)** for real-time streaming
 - Clinic analytics (risk overview + anomaly-focused trends)
 - Audit logging and role-based access controls
 - Docker setup for local full-stack runs (frontend + backend + postgres + redis)
@@ -37,9 +37,10 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
 2. Create patients (clinic-scoped)
 3. Add consultations
 4. Add vitals/lab data (API-supported)
-5. Generate AI clinical summaries (queued, async)
+5. Generate AI clinical summaries (queued, streamed via SSE)
 6. Review clinic analytics and anomaly indicators
 7. Inspect audit trail (admin role)
+8. Patient self-service portal (overview, records, appointments, summaries)
 
 ---
 
@@ -52,10 +53,12 @@ MediBrief is a multi-tenant clinical monitoring SaaS that helps clinics manage p
   - `ADMIN`
   - `DOCTOR`
 - API hardening includes:
-  - Helmet
-  - CORS config
-  - Rate limiting
+  - Helmet (HTTP security headers)
+  - Strict CORS validation (rejects localhost in production, comma-separated origin support)
+  - Tiered rate limiting (global API, auth-specific 10 req/min, AI-specific 5 req/min)
   - Optional HTTPS enforcement in production (`REQUIRE_HTTPS=true`)
+  - PostgreSQL Row-Level Security (RLS) for tenant isolation
+  - PHI scrubbing in audit logs
 
 ---
 
@@ -187,7 +190,11 @@ Base URL: `/api`
 ### AI
 
 - `POST /ai/generate-summary/:patientId` (returns `202` + `jobId`)
-- `GET /ai/jobs/:jobId` (poll queue status and resulting `summaryId`)
+- `GET /ai/stream/:jobId` (SSE — real-time job progress via Server-Sent Events)
+- `GET /ai/jobs/:jobId` (poll fallback — query job status and resulting `summaryId`)
+- `POST /ai/chat/:patientId` (RAG — chat with patient records)
+- `GET /ai/summaries/:patientId` (list summaries)
+- `GET /ai/summary/:summaryId` (single summary detail)
 
 ### API Docs
 
@@ -281,12 +288,49 @@ Notes:
 
 ---
 
-## Compliance and Data Safety
+## Compliance Architecture
 
-- Use synthetic/non-real patient data for demos
-- Enforce least privilege for clinical users
-- Keep audit logs enabled for traceability
-- Treat AI output as support, not diagnosis
+MediBrief is designed with healthcare-grade compliance patterns. The following controls are implemented:
+
+### HIPAA Alignment
+
+| Control | Implementation |
+| --- | --- |
+| Access Control (§164.312(a)) | JWT auth with role-based access (ADMIN, DOCTOR, PATIENT) + clinic-scoped tenant isolation |
+| Audit Controls (§164.312(b)) | Immutable audit log capturing actor, action, resource, IP, and user-agent for every mutation |
+| Transmission Security (§164.312(e)) | HTTPS enforcement in production (`REQUIRE_HTTPS=true`), Helmet security headers |
+| Integrity Controls (§164.312(c)) | Soft-delete with `deletedAt` timestamps; `onDelete: Restrict` prevents cascading data loss |
+| Minimum Necessary (§164.514(d)) | PHI is scrubbed from audit logs; AI prompts use the GDPR anonymizer to strip direct identifiers |
+| BAA Requirement | OpenAI-compatible endpoint is configurable — use a BAA-covered provider (e.g., Azure OpenAI) for production |
+
+### GDPR Alignment
+
+| Control | Implementation |
+| --- | --- |
+| Right to Erasure (Art. 17) | Soft-delete architecture with `deletedAt` field; full purge can be scripted |
+| Data Minimization (Art. 5(1)(c)) | Anonymizer strips names, DOBs, and identifiers before AI processing |
+| Lawful Basis / Consent | Patient portal requires explicit authentication; invite-token flow ensures patient consent |
+| Data Portability (Art. 20) | PDF export on patient portal (overview + records) |
+| Breach Notification (Art. 33) | Audit log provides forensic trail; structured logging supports SIEM integration |
+
+### Data Flow — PHI Handling
+
+```
+Client → [TLS] → Express API → [JWT + RLS] → PostgreSQL
+                       ↓
+               BullMQ Job Queue → [Anonymizer] → OpenAI-compatible API
+                       ↓
+               Redis PubSub → [SSE] → Client (real-time result)
+```
+
+### Operational Safeguards
+
+- Use synthetic/non-real patient data for demos and testing
+- Enforce least privilege for clinical users (role-based middleware)
+- Keep audit logs enabled and review regularly
+- Treat AI output as clinical decision support, **never** as diagnosis
+- Run `npm audit` regularly; accept transitive dev-dependency advisories only after triage
+- Rotate secrets (`JWT_SECRET`, API keys) on a regular schedule
 
 ---
 
