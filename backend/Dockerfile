@@ -19,4 +19,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 RUN npm prune --omit=dev
 EXPOSE 4000
-CMD ["sh", "-c", "npx prisma db push --url \"$DATABASE_URL\" && psql \"$DATABASE_URL\" -f prisma/rls.sql 2>/dev/null || true && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss --url \"$DATABASE_URL\" && psql \"$DATABASE_URL\" -f prisma/rls.sql 2>/dev/null || true && node dist/server.js"]
