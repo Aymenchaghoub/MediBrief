@@ -144,9 +144,10 @@ export default function MyRecordsPage() {
       )}
 
       {/* Tab bar */}
-      <div className="tab-bar">
+      <div className="tab-bar" role="tablist">
         <button
           type="button"
+          role="tab"
           className="tab-btn"
           aria-selected={tab === "vitals"}
           onClick={() => setTab("vitals")}
@@ -155,6 +156,7 @@ export default function MyRecordsPage() {
         </button>
         <button
           type="button"
+          role="tab"
           className="tab-btn"
           aria-selected={tab === "labs"}
           onClick={() => setTab("labs")}

@@ -18,6 +18,9 @@ interface StreamingMarkdownProps {
 /**
  * Renders Markdown content with a ChatGPT-style typewriter animation.
  * Text streams in character-by-character, parsed as Markdown in real time.
+ *
+ * Uses React-recommended "store previous props in state" pattern to detect
+ * prop changes without accessing refs during render.
  */
 export function StreamingMarkdown({
   content,
@@ -25,39 +28,51 @@ export function StreamingMarkdown({
   immediate = false,
   onComplete,
 }: StreamingMarkdownProps) {
+  /* --- state: tracks displayed text and previous props --- */
+  const [prevContent, setPrevContent] = useState(content);
+  const [prevImmediate, setPrevImmediate] = useState(immediate);
   const [displayed, setDisplayed] = useState(immediate ? content : "");
-  const [isStreaming, setIsStreaming] = useState(!immediate && content.length > 0);
-  const indexRef = useRef(immediate ? content.length : 0);
+  const [isStreaming, setIsStreaming] = useState(
+    !immediate && content.length > 0,
+  );
+
+  /* --- refs: only accessed inside effects / rAF callbacks --- */
+  const indexRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef(0);
+  const lastTimeRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset when content changes
-  useEffect(() => {
+  /* --- adjust state when props change (render-time, no ref access) --- */
+  if (content !== prevContent || immediate !== prevImmediate) {
+    setPrevContent(content);
+    setPrevImmediate(immediate);
     if (immediate) {
       setDisplayed(content);
       setIsStreaming(false);
-      return;
+    } else {
+      setDisplayed("");
+      setIsStreaming(content.length > 0);
     }
+  }
 
-    indexRef.current = 0;
-    setDisplayed("");
-    setIsStreaming(content.length > 0);
-    lastTimeRef.current = 0;
-  }, [content, immediate]);
-
-  // Typewriter animation loop using requestAnimationFrame
+  /* --- typewriter animation loop using requestAnimationFrame --- */
   useEffect(() => {
     if (!isStreaming || immediate) return;
+
+    // Reset animation trackers at start of each effect run
+    indexRef.current = 0;
+    lastTimeRef.current = 0;
 
     function step(timestamp: number) {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const elapsed = timestamp - lastTimeRef.current;
 
       if (elapsed >= speed) {
-        // Stream multiple chars per frame proportional to elapsed time
         const charsToAdd = Math.max(1, Math.floor(elapsed / speed));
-        const nextIndex = Math.min(indexRef.current + charsToAdd, content.length);
+        const nextIndex = Math.min(
+          indexRef.current + charsToAdd,
+          content.length,
+        );
         indexRef.current = nextIndex;
         setDisplayed(content.slice(0, nextIndex));
         lastTimeRef.current = timestamp;
@@ -79,7 +94,7 @@ export function StreamingMarkdown({
     };
   }, [isStreaming, content, speed, immediate, onComplete]);
 
-  // Auto-scroll to bottom as content streams in
+  /* --- auto-scroll to bottom as content streams in --- */
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;

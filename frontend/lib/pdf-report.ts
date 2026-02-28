@@ -39,7 +39,6 @@ interface HealthReportData {
 
 const MARGIN = 48;
 const LINE = 14;
-const COL_GAP = 8;
 
 function fmtDate(iso: string) {
   const d = new Date(iso);

@@ -93,9 +93,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="tab-bar">
+      <div className="tab-bar" role="tablist">
         <button
           type="button"
+          role="tab"
           className="tab-btn"
           aria-selected={tab === "profile"}
           onClick={() => setTab("profile")}
@@ -104,6 +105,7 @@ export default function SettingsPage() {
         </button>
         <button
           type="button"
+          role="tab"
           className="tab-btn"
           aria-selected={tab === "security"}
           onClick={() => setTab("security")}
