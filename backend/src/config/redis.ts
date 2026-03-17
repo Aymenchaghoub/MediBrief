@@ -15,8 +15,8 @@ const redisOptions = {
 
 export const redisCacheClient = new IORedis(env.REDIS_URL, redisOptions);
 
-redisCacheClient.on("error", () => {
-  // Keep Redis failures non-fatal for HTTP request handling.
+redisCacheClient.on("error", (err) => {
+  console.warn("[Redis] Connection error (non-fatal):", err.message);
 });
 
 export function createRedisConnection() {
@@ -32,7 +32,8 @@ export async function getCachedJson<T>(key: string): Promise<T | null> {
     }
 
     return JSON.parse(payload) as T;
-  } catch {
+  } catch (err) {
+    console.warn("[Redis] Cache read failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -40,15 +41,15 @@ export async function getCachedJson<T>(key: string): Promise<T | null> {
 export async function setCachedJson<T>(key: string, value: T, ttlSeconds: number) {
   try {
     await redisCacheClient.set(key, JSON.stringify(value), "EX", ttlSeconds);
-  } catch {
-    // Intentionally swallow cache failures.
+  } catch (err) {
+    console.warn("[Redis] Cache write failed:", err instanceof Error ? err.message : err);
   }
 }
 
 export async function deleteCacheKey(key: string) {
   try {
     await redisCacheClient.del(key);
-  } catch {
-    // Intentionally swallow cache failures.
+  } catch (err) {
+    console.warn("[Redis] Cache delete failed:", err instanceof Error ? err.message : err);
   }
 }

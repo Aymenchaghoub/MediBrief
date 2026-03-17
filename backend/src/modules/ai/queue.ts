@@ -91,8 +91,8 @@ export interface JobEvent {
 async function publishJobEvent(jobId: string, event: JobEvent) {
   try {
     await redisCacheClient.publish(jobChannel(jobId), JSON.stringify(event));
-  } catch {
-    // Non-fatal — SSE clients will fall back to final status query.
+  } catch (err) {
+    console.warn(`[AI Queue] PubSub publish failed for job ${jobId}:`, err instanceof Error ? err.message : err);
   }
 }
 
@@ -107,11 +107,15 @@ export function subscribeToJobEvents(
   const sub = createRedisConnection();
   const channel = jobChannel(jobId);
 
-  sub.subscribe(channel).catch(() => {});
+  sub.subscribe(channel).catch((err) => {
+    console.warn(`[AI Queue] PubSub subscribe failed for ${channel}:`, err instanceof Error ? err.message : err);
+  });
   sub.on("message", (_ch: string, message: string) => {
     try {
       onEvent(JSON.parse(message) as JobEvent);
-    } catch { /* ignore malformed */ }
+    } catch (parseErr) {
+      console.warn(`[AI Queue] Malformed PubSub message on ${channel}:`, parseErr instanceof Error ? parseErr.message : parseErr);
+    }
   });
 
   return {

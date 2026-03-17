@@ -56,6 +56,8 @@ consultationsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, r
       action: "CONSULTATION_CREATE",
       entityType: "CONSULTATION",
       entityId: consultation.id,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
     });
 
     await invalidateAiStructuredInputCache(parsed.data.patientId);

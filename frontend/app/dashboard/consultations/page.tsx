@@ -117,6 +117,16 @@ export default function ConsultationsPage() {
       return;
     }
 
+    if (form.symptoms.trim().length > 5000) {
+      pushToast("Symptoms must be 5000 characters or less.", "error");
+      return;
+    }
+
+    if (form.notes.trim().length > 10000) {
+      pushToast("Clinical notes must be 10000 characters or less.", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await apiFetch<Consultation>("/consultations", {

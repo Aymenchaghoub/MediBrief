@@ -72,6 +72,8 @@ authRouter.post("/register-clinic", async (req, res) => {
         action: "REGISTER_CLINIC",
         entityType: "CLINIC",
         entityId: clinic.id,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
       });
 
       return { clinic, adminUser };
@@ -132,6 +134,8 @@ authRouter.post("/login", async (req, res) => {
       action: "LOGIN",
       entityType: "USER",
       entityId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
     });
 
     return res.status(200).json({

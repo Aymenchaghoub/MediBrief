@@ -23,9 +23,30 @@ export function AuthCard() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function validate(): string | null {
+    if (!email.trim()) return "Email is required.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Please enter a valid email address.";
+    if (password.length < 8) return "Password must be at least 8 characters.";
+    if (mode === "register") {
+      if (clinicName.trim().length < 2) return "Clinic name must be at least 2 characters.";
+      if (!clinicEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) return "Please enter a valid clinic email.";
+      if (adminName.trim().length < 2) return "Admin name must be at least 2 characters.";
+      if (subscriptionPlan.trim().length < 2) return "Subscription plan must be at least 2 characters.";
+    }
+    return null;
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      pushToast(validationError, "error");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

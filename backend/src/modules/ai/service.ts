@@ -1,6 +1,6 @@
 import type { Consultation, LabResult, Patient, VitalRecord } from "@prisma/client";
-import OpenAI from "openai";
 import { env } from "../../config/env";
+import { openaiClient } from "../../config/openai-client";
 import { anonymizeForAi } from "./anonymizer";
 
 export interface StructuredClinicalInput {
@@ -242,20 +242,11 @@ function createFallbackSummary(input: StructuredClinicalInput, riskFlags: AiGene
 }
 
 async function generateWithOpenAi(input: StructuredClinicalInput) {
-  if (!env.OPENAI_API_KEY) {
+  if (!openaiClient) {
     return null;
   }
 
   const anonymized = anonymizeForAi(input);
-
-  const client = new OpenAI({
-    apiKey: env.OPENAI_API_KEY,
-    baseURL: env.OPENAI_BASE_URL,
-    defaultHeaders: {
-      ...(env.OPENAI_HTTP_REFERER ? { "HTTP-Referer": env.OPENAI_HTTP_REFERER } : {}),
-      ...(env.OPENAI_APP_NAME ? { "X-Title": env.OPENAI_APP_NAME } : {}),
-    },
-  });
 
   try {
     const systemPrompt = `You are MediBrief, a clinical documentation assistant for healthcare professionals.
@@ -292,7 +283,7 @@ End with: "AI-generated monitoring support only. This is not a diagnosis. Clinic
 
     const userPrompt = `Anonymized patient clinical data:\n\n${JSON.stringify(anonymized, null, 2)}`;
 
-    const response = await client.chat.completions.create({
+    const response = await openaiClient.chat.completions.create({
       model: env.OPENAI_MODEL,
       temperature: 0.3,
       max_tokens: 1500,

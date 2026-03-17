@@ -22,13 +22,9 @@ declare global {
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
-  let token: string | undefined;
-
-  if (authHeader?.startsWith("Bearer ")) {
-    token = authHeader.split(" ")[1];
-  } else if (typeof req.query.token === "string" && req.query.token) {
-    token = req.query.token;
-  }
+  // Only accept tokens via Authorization: Bearer header.
+  // Query-string tokens are rejected to prevent token leakage in logs and browser history.
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
 
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });

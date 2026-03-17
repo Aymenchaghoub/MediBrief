@@ -42,3 +42,18 @@ if (env.SWAGGER_ENABLED) {
 }
 
 app.use("/api", apiRateLimiter, apiRouter);
+
+// Global error handler — catches unhandled errors from all routes
+app.use((err: Error, _req: import("express").Request, res: import("express").Response, _next: import("express").NextFunction) => {
+  // CORS errors from the origin callback
+  if (err.message === "CORS origin not allowed") {
+    return res.status(403).json({ message: "CORS origin not allowed" });
+  }
+
+  console.error("[Unhandled Error]", err.stack ?? err.message);
+
+  const status = "status" in err && typeof err.status === "number" ? err.status : 500;
+  const message = process.env.NODE_ENV === "production" ? "Internal server error" : err.message;
+
+  return res.status(status).json({ message });
+});

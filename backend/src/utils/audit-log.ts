@@ -7,6 +7,8 @@ interface AuditLogInput {
   action: string;
   entityType: string;
   entityId: string;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 /** Patterns that match common PHI: UUIDs, emails, phone numbers, names in quotes */
@@ -35,6 +37,8 @@ export async function writeAuditLog(db: AuditWriter, input: AuditLogInput) {
       action: scrubPhi(input.action),
       entityType: input.entityType,
       entityId: input.entityId, // opaque primary key — no PHI
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
     },
   });
 }

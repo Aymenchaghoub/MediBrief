@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { env } from "./env";
@@ -17,7 +17,8 @@ export const prisma = new PrismaClient({
 /**
  * Sets the PostgreSQL session variable `app.clinic_id` for RLS enforcement.
  * Must be called at the start of every request that accesses tenant-scoped data.
+ * Uses parameterized query via Prisma.sql to prevent SQL injection.
  */
 export async function setRlsClinicId(clinicId: string) {
-  await prisma.$executeRawUnsafe(`SET LOCAL app.clinic_id = '${clinicId.replace(/'/g, "''")}';`);
+  await prisma.$executeRaw(Prisma.sql`SELECT set_config('app.clinic_id', ${clinicId}, true)`);
 }

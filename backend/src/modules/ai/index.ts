@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import OpenAI from "openai";
 import { prisma } from "../../config/db";
 import { env } from "../../config/env";
+import { openaiClient } from "../../config/openai-client";
 import { roleMiddleware } from "../../middlewares/role.middleware";
 import { checkSubscriptionLimits, incrementAiUsage } from "../../middlewares/subscription.middleware";
 import { enqueueAiSummaryJob, getAiSummaryJobStatus, subscribeToJobEvents } from "./queue";
@@ -262,24 +262,15 @@ aiRouter.post(
     const structuredInput = buildStructuredInput(patient, vitals, labs, consultations);
     const anonymizedContext = anonymizeForAi(structuredInput);
 
-    if (!env.OPENAI_API_KEY) {
+    if (!openaiClient) {
       return res.status(503).json({
         message: "AI service unavailable",
         answer: "The AI service is not configured. Please set OPENAI_API_KEY to enable chat functionality.",
       });
     }
 
-    const client = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-      baseURL: env.OPENAI_BASE_URL,
-      defaultHeaders: {
-        ...(env.OPENAI_HTTP_REFERER ? { "HTTP-Referer": env.OPENAI_HTTP_REFERER } : {}),
-        ...(env.OPENAI_APP_NAME ? { "X-Title": env.OPENAI_APP_NAME } : {}),
-      },
-    });
-
     try {
-      const response = await client.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: env.OPENAI_MODEL,
         temperature: 0.3,
         messages: [

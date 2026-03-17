@@ -108,6 +108,23 @@ export default function PatientsPage() {
       return;
     }
 
+    if (form.firstName.trim().length > 100 || form.lastName.trim().length > 100) {
+      pushToast("Name fields must be 100 characters or less.", "error");
+      return;
+    }
+
+    const dob = new Date(form.dateOfBirth);
+    if (isNaN(dob.getTime()) || dob > new Date()) {
+      pushToast("Date of birth cannot be in the future.", "error");
+      return;
+    }
+
+    const phone = form.phone?.trim();
+    if (phone && (phone.length < 6 || phone.length > 30)) {
+      pushToast("Phone number must be between 6 and 30 characters.", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await apiFetch<Patient>("/patients", {
@@ -117,7 +134,7 @@ export default function PatientsPage() {
           ...form,
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
-          phone: form.phone?.trim() ? form.phone.trim() : undefined,
+          phone: phone ? phone : undefined,
         }),
       });
 

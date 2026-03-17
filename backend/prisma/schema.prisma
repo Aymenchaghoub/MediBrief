@@ -33,6 +33,7 @@ model Clinic {
   aiCallCount      Int      @default(0)
   billingPeriodStart DateTime @default(now())
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   users    User[]
   patients Patient[]
@@ -47,6 +48,7 @@ model User {
   role         UserRole
   isArchived   Boolean  @default(false)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   consultations Consultation[] @relation("DoctorConsultations")
@@ -69,6 +71,7 @@ model Patient {
   inviteExpiresAt DateTime?
   isArchived      Boolean   @default(false)
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   consultations Consultation[]
@@ -88,6 +91,7 @@ model Consultation {
   symptoms  String
   notes     String
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
@@ -106,6 +110,8 @@ model VitalRecord {
   numericValue  Float?
   unit          String    @default("")
   recordedAt    DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
@@ -122,6 +128,8 @@ model LabResult {
   unit           String    @default("")
   referenceRange String?
   recordedAt     DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
@@ -136,6 +144,7 @@ model AISummary {
   summaryText    String
   riskFlags      Json
   createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
   patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
@@ -151,6 +160,8 @@ model AuditLog {
   action     String
   entityType String
   entityId   String
+  ipAddress  String?
+  userAgent  String?
   timestamp  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

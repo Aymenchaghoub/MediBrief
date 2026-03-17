@@ -65,6 +65,8 @@ vitalsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) => 
       action: "VITAL_CREATE",
       entityType: "VITAL_RECORD",
       entityId: vital.id,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
     });
 
     await invalidateAiStructuredInputCache(parsed.data.patientId);

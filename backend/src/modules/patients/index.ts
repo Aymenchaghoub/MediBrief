@@ -32,12 +32,14 @@ const updatePatientSchema = z
     message: "At least one field is required",
   });
 
-async function writePatientAuditLog(userId: string, action: string, patientId: string) {
+async function writePatientAuditLog(userId: string, action: string, patientId: string, ipAddress?: string, userAgent?: string) {
   await writeAuditLog(prisma, {
     userId,
     action,
     entityType: "PATIENT",
     entityId: patientId,
+    ipAddress,
+    userAgent,
   });
 }
 
@@ -95,7 +97,7 @@ patientsRouter.post("/", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res) =
       },
     });
 
-    await writePatientAuditLog(req.user.id, "PATIENT_CREATE", patient.id);
+    await writePatientAuditLog(req.user.id, "PATIENT_CREATE", patient.id, req.ip, req.get("user-agent"));
 
     return res.status(201).json(patient);
   } catch {
@@ -155,7 +157,7 @@ patientsRouter.put("/:id", roleMiddleware(["ADMIN", "DOCTOR"]), async (req, res)
       data: parsedBody.data,
     });
 
-    await writePatientAuditLog(req.user.id, "PATIENT_UPDATE", updatedPatient.id);
+    await writePatientAuditLog(req.user.id, "PATIENT_UPDATE", updatedPatient.id, req.ip, req.get("user-agent"));
     await invalidateAiStructuredInputCache(updatedPatient.id);
 
     return res.status(200).json(updatedPatient);
@@ -198,7 +200,7 @@ patientsRouter.post("/:id/invite", roleMiddleware(["ADMIN", "DOCTOR"]), async (r
     data: { inviteToken, inviteExpiresAt },
   });
 
-  await writePatientAuditLog(req.user.id, "PATIENT_INVITE", patient.id);
+  await writePatientAuditLog(req.user.id, "PATIENT_INVITE", patient.id, req.ip, req.get("user-agent"));
 
   return res.status(200).json({
     inviteToken,
@@ -232,7 +234,7 @@ patientsRouter.delete("/:id", roleMiddleware(["ADMIN"]), async (req, res) => {
       where: { id: existingPatient.id },
       data: { isArchived: true },
     });
-    await writePatientAuditLog(req.user.id, "PATIENT_ARCHIVE", existingPatient.id);
+    await writePatientAuditLog(req.user.id, "PATIENT_ARCHIVE", existingPatient.id, req.ip, req.get("user-agent"));
     await invalidateAiStructuredInputCache(existingPatient.id);
 
     return res.status(204).send();
