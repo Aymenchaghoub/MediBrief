@@ -8,3 +8,5 @@ frontend/.env.local
 .DS_Store
 
 backend/.env.docker
+test-results/
+playwright-report/

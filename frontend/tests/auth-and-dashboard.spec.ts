@@ -19,7 +19,7 @@ async function login(page: import("@playwright/test").Page) {
   await page.goto("/auth");
   await page.getByLabel(/email/i).fill(EMAIL);
   await page.getByLabel(/password/i).fill(PASSWORD);
-  await page.getByRole("button", { name: /sign in|log in|login/i }).click();
+  await page.getByRole("button", { name: /^sign in$/i }).click();
   // Wait for redirect to dashboard
   await page.waitForURL("**/dashboard**", { timeout: 10_000 });
 }
@@ -42,7 +42,7 @@ test.describe("Auth flow", () => {
     await page.goto("/auth");
     await page.getByLabel(/email/i).fill("wrong@example.com");
     await page.getByLabel(/password/i).fill("badpassword");
-    await page.getByRole("button", { name: /sign in|log in|login/i }).click();
+    await page.getByRole("button", { name: /^sign in$/i }).click();
     // Should stay on auth page (not redirect)
     await page.waitForTimeout(2000);
     await expect(page).toHaveURL(/\/auth/);

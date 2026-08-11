@@ -55,6 +55,8 @@ function makeLab(overrides: Partial<LabResult> = {}): LabResult {
     referenceRange: "70-100",
     recordedAt: new Date("2026-01-15"),
     deletedAt: null,
+    createdAt: new Date("2026-01-15"),
+    updatedAt: new Date("2026-01-15"),
     ...overrides,
   };
 }
@@ -117,6 +119,8 @@ function makeVitals(anomalyCount: number): ReturnType<typeof buildPatientVitalsA
       unit: "mmHg",
       recordedAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}`),
       deletedAt: null,
+      createdAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}`),
+      updatedAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}`),
     });
   }
 
