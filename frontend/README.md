@@ -1,6 +1,6 @@
 # MediBrief Frontend
 
-Premium dark-mode SaaS frontend for MediBrief, built with Next.js App Router and TypeScript.
+Clinical workspace and patient portal for MediBrief, built with Next.js App Router and TypeScript. The dark graphite interface uses self-hosted IBM Plex Sans, accessible controls and real recorded measurements.
 
 ## Features
 
@@ -41,10 +41,18 @@ npm run dev
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
+npm run test:ui
 ```
 
 ## Notes
 
 - Frontend expects backend auth + domain APIs to be running.
 - Remaining npm audit highs are from ESLint dependency chain and require a major lint stack upgrade (`npm audit fix --force`).
+
+## Interface validation and screenshots
+
+The UI regression suite uses synthetic API fixtures confined to Playwright tests. It covers clinic and patient workflows, keyboard navigation, empty/error/loading states, responsive layouts and automated WCAG A/AA checks without requiring a backend.
+
+See the [validation report](docs/ui/VALIDATION.md), [complete screenshot gallery](docs/ui/index.html) and [downloadable screenshot archive](docs/medibrief-captures.zip). The historical full-stack tests still require the backend, database, Redis and test accounts.

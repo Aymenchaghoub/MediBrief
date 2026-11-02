@@ -52,11 +52,16 @@ export default function PatientsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const resp = await apiFetch<PaginatedResponse>("/patients?limit=20", { auth: true });
+      const resp = await apiFetch<PaginatedResponse>("/patients?limit=20", {
+        auth: true,
+      });
       setPatients(resp.data);
       setNextCursor(resp.nextCursor);
     } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Unable to load patients";
+      const message =
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Unable to load patients";
       setError(message);
       pushToast(message, "error");
     } finally {
@@ -68,11 +73,19 @@ export default function PatientsPage() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const resp = await apiFetch<PaginatedResponse>(`/patients?limit=20&cursor=${nextCursor}`, { auth: true });
+      const resp = await apiFetch<PaginatedResponse>(
+        `/patients?limit=20&cursor=${nextCursor}`,
+        { auth: true },
+      );
       setPatients((prev) => [...prev, ...resp.data]);
       setNextCursor(resp.nextCursor);
     } catch (fetchError) {
-      pushToast(fetchError instanceof Error ? fetchError.message : "Unable to load more patients", "error");
+      pushToast(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Unable to load more patients",
+        "error",
+      );
     } finally {
       setIsLoadingMore(false);
     }
@@ -92,9 +105,15 @@ export default function PatientsPage() {
       const link = `${window.location.origin}/patient-auth?token=${res.inviteToken}`;
       setInviteLink(link);
       await navigator.clipboard.writeText(link);
-      pushToast(`Invite link for ${res.patientName} copied to clipboard!`, "success");
+      pushToast(
+        `Invite link for ${res.patientName} copied to clipboard!`,
+        "success",
+      );
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : "Unable to generate invite", "error");
+      pushToast(
+        err instanceof Error ? err.message : "Unable to generate invite",
+        "error",
+      );
     } finally {
       setInvitingId(null);
     }
@@ -104,11 +123,17 @@ export default function PatientsPage() {
     event.preventDefault();
 
     if (!form.firstName.trim() || !form.lastName.trim() || !form.dateOfBirth) {
-      pushToast("Please fill first name, last name, and date of birth.", "error");
+      pushToast(
+        "Please fill first name, last name, and date of birth.",
+        "error",
+      );
       return;
     }
 
-    if (form.firstName.trim().length > 100 || form.lastName.trim().length > 100) {
+    if (
+      form.firstName.trim().length > 100 ||
+      form.lastName.trim().length > 100
+    ) {
       pushToast("Name fields must be 100 characters or less.", "error");
       return;
     }
@@ -138,11 +163,22 @@ export default function PatientsPage() {
         }),
       });
 
-      setForm({ firstName: "", lastName: "", dateOfBirth: "", gender: "OTHER", phone: "" });
+      setForm({
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        gender: "OTHER",
+        phone: "",
+      });
       await loadPatients();
       pushToast("Patient created successfully.", "success");
     } catch (submitError) {
-      pushToast(submitError instanceof Error ? submitError.message : "Unable to create patient.", "error");
+      pushToast(
+        submitError instanceof Error
+          ? submitError.message
+          : "Unable to create patient.",
+        "error",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +189,7 @@ export default function PatientsPage() {
       <section className="panel">
         <SectionHeader
           title="Add Patient"
-          description="Create a tenant-scoped patient record that is immediately available to consultations and AI flows."
+          description="Add the patient’s details to start their clinical record"
         />
 
         <form onSubmit={handleCreatePatient} aria-busy={isSubmitting}>
@@ -163,7 +199,12 @@ export default function PatientsPage() {
               <input
                 id="firstName"
                 value={form.firstName}
-                onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    firstName: event.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -173,7 +214,12 @@ export default function PatientsPage() {
               <input
                 id="lastName"
                 value={form.lastName}
-                onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    lastName: event.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -184,7 +230,12 @@ export default function PatientsPage() {
                 id="dateOfBirth"
                 type="date"
                 value={form.dateOfBirth}
-                onChange={(event) => setForm((current) => ({ ...current, dateOfBirth: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    dateOfBirth: event.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -213,15 +264,29 @@ export default function PatientsPage() {
             <input
               id="phone"
               value={form.phone}
-              onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  phone: event.target.value,
+                }))
+              }
             />
           </div>
 
           <div className="button-row auth-actions">
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Creating..." : "Create Patient"}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={loadPatients} disabled={isLoading}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={loadPatients}
+              disabled={isLoading}
+            >
               Refresh List
             </button>
           </div>
@@ -231,10 +296,15 @@ export default function PatientsPage() {
       <section className="panel" aria-busy={isLoading}>
         <SectionHeader
           title="Patients Registry"
-          description="Tenant-scoped records with consultation and risk visibility."
+          description="Patient records available to your clinic"
         />
 
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Patient registry"
+        >
           <table>
             <thead>
               <tr>
@@ -253,7 +323,9 @@ export default function PatientsPage() {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={6} role="alert">{error}</td>
+                  <td colSpan={6} role="alert">
+                    {error}
+                  </td>
                 </tr>
               ) : patients.length === 0 ? (
                 <tr>
@@ -262,7 +334,11 @@ export default function PatientsPage() {
               ) : (
                 patients.map((patient) => (
                   <tr key={patient.id}>
-                    <td><Link href={`/dashboard/patients/${patient.id}`}>{patient.firstName} {patient.lastName}</Link></td>
+                    <td>
+                      <Link href={`/dashboard/patients/${patient.id}`}>
+                        {patient.firstName} {patient.lastName}
+                      </Link>
+                    </td>
                     <td>{formatDate(patient.dateOfBirth)}</td>
                     <td>{patient.gender}</td>
                     <td>{patient.phone ?? "-"}</td>
@@ -273,7 +349,10 @@ export default function PatientsPage() {
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          style={{ fontSize: "0.78rem", padding: "0.25rem 0.55rem" }}
+                          style={{
+                            fontSize: "0.78rem",
+                            padding: "4px 8px",
+                          }}
                           disabled={invitingId === patient.id}
                           onClick={() => handleInvite(patient.id)}
                         >
@@ -281,7 +360,9 @@ export default function PatientsPage() {
                         </button>
                       )}
                     </td>
-                    <td><span className="badge badge-safe">Tracked</span></td>
+                    <td>
+                      <span className="badge badge-safe">Tracked</span>
+                    </td>
                   </tr>
                 ))
               )}
@@ -290,20 +371,41 @@ export default function PatientsPage() {
         </div>
 
         {nextCursor && (
-          <div className="button-row" style={{ marginTop: "1rem" }}>
-            <button className="btn btn-secondary" onClick={loadMore} disabled={isLoadingMore}>
+          <div className="button-row" style={{ marginTop: "16px" }}>
+            <button
+              className="btn btn-secondary"
+              onClick={loadMore}
+              disabled={isLoadingMore}
+            >
               {isLoadingMore ? "Loading..." : "Load More"}
             </button>
           </div>
         )}
 
         {inviteLink && (
-          <div className="panel" style={{ marginTop: "1rem", borderLeft: "3px solid var(--primary)" }}>
-            <p style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: "0.3rem" }}>
+          <div
+            className="panel"
+            style={{
+              marginTop: "16px",
+              borderLeft: "3px solid var(--primary)",
+            }}
+          >
+            <p
+              style={{
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                marginBottom: "4px",
+              }}
+            >
               Invite Link Generated
             </p>
-            <p className="muted" style={{ fontSize: "0.82rem", wordBreak: "break-all" }}>{inviteLink}</p>
-            <div className="button-row" style={{ marginTop: "0.5rem" }}>
+            <p
+              className="muted"
+              style={{ fontSize: "0.82rem", wordBreak: "break-all" }}
+            >
+              {inviteLink}
+            </p>
+            <div className="button-row" style={{ marginTop: "8px" }}>
               <button
                 type="button"
                 className="btn btn-secondary"

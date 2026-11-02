@@ -43,10 +43,11 @@ interface HistorySummary {
 
 /* ── constants ─────────────────────────────────────────────────── */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 const PLACEHOLDER_TEXT =
-  "Select a patient and click **Generate New Summary** to create an AI-assisted clinical monitoring report.\n\nThe summary will stream in real-time — analyzing vitals, lab results, and consultation history.";
+  "Select a patient and click **Generate New Summary** to create an AI-assisted clinical monitoring report.\n\nThe summary brings together vitals, lab results and consultation history for your review.";
 
 /* ── component ─────────────────────────────────────────────────── */
 
@@ -67,7 +68,9 @@ export default function AiSummaryPage() {
 
   /* history */
   const [history, setHistory] = useState<HistorySummary[]>([]);
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(
+    null,
+  );
 
   /* exports */
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -89,7 +92,10 @@ export default function AiSummaryPage() {
   /* ── load patients ────────────────────────────────────────────── */
 
   useEffect(() => {
-    apiFetch<{ data: Patient[]; nextCursor: string | null }>("/patients?limit=100", { auth: true })
+    apiFetch<{ data: Patient[]; nextCursor: string | null }>(
+      "/patients?limit=100",
+      { auth: true },
+    )
       .then((resp) => {
         setPatients(resp.data);
         if (resp.data[0]) {
@@ -97,7 +103,10 @@ export default function AiSummaryPage() {
         }
       })
       .catch((error) => {
-        pushToast(error instanceof Error ? error.message : "Unable to load patients.", "error");
+        pushToast(
+          error instanceof Error ? error.message : "Unable to load patients.",
+          "error",
+        );
       })
       .finally(() => setIsLoadingPatients(false));
   }, [pushToast]);
@@ -109,7 +118,9 @@ export default function AiSummaryPage() {
       setHistory([]);
       return;
     }
-    apiFetch<HistorySummary[]>(`/ai/summaries/patient/${selectedPatientId}`, { auth: true })
+    apiFetch<HistorySummary[]>(`/ai/summaries/patient/${selectedPatientId}`, {
+      auth: true,
+    })
       .then((data) => setHistory(data))
       .catch(() => setHistory([]));
   }, [selectedPatientId]);
@@ -132,7 +143,10 @@ export default function AiSummaryPage() {
 
           if (data.state === "completed" && data.summaryId) {
             closeStream();
-            const summary = await apiFetch<SummaryResponse>(`/ai/summaries/${data.summaryId}`, { auth: true });
+            const summary = await apiFetch<SummaryResponse>(
+              `/ai/summaries/${data.summaryId}`,
+              { auth: true },
+            );
             setStreamImmediate(false); // enable typewriter animation
             setSummaryText(summary.summaryText);
             setHasGeneratedSummary(true);
@@ -141,7 +155,10 @@ export default function AiSummaryPage() {
             pushToast("Clinical summary generated.", "success");
 
             // Refresh history
-            apiFetch<HistorySummary[]>(`/ai/summaries/patient/${selectedPatientId}`, { auth: true })
+            apiFetch<HistorySummary[]>(
+              `/ai/summaries/patient/${selectedPatientId}`,
+              { auth: true },
+            )
               .then((data) => setHistory(data))
               .catch(() => {});
           } else if (data.state === "failed") {
@@ -155,7 +172,9 @@ export default function AiSummaryPage() {
             pushToast("Summary generation failed.", "error");
           } else if (data.state === "timeout") {
             closeStream();
-            setSummaryText("## Timed Out\n\nSummary generation timed out. Please try again.");
+            setSummaryText(
+              "## Timed Out\n\nSummary generation timed out. Please try again.",
+            );
             setIsGenerating(false);
             setJobState(null);
             pushToast("Generation timed out.", "error");
@@ -190,14 +209,18 @@ export default function AiSummaryPage() {
     setSelectedHistoryId(null);
 
     try {
-      const response = await apiFetch<QueuedResponse>(`/ai/generate-summary/${selectedPatientId}`, {
-        method: "POST",
-        auth: true,
-      });
+      const response = await apiFetch<QueuedResponse>(
+        `/ai/generate-summary/${selectedPatientId}`,
+        {
+          method: "POST",
+          auth: true,
+        },
+      );
 
       startSSEStream(response.jobId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to generate summary.";
+      const message =
+        error instanceof Error ? error.message : "Unable to generate summary.";
       setSummaryText(`## Error\n\n${message}`);
       setHasGeneratedSummary(false);
       setIsGenerating(false);
@@ -219,11 +242,14 @@ export default function AiSummaryPage() {
 
   function getSelectedPatientName() {
     const patient = patients.find((p) => p.id === selectedPatientId);
-    return patient ? `${patient.firstName}-${patient.lastName}`.toLowerCase() : "patient";
+    return patient
+      ? `${patient.firstName}-${patient.lastName}`.toLowerCase()
+      : "patient";
   }
 
   function exportAsText() {
-    if (!summaryText.trim()) return pushToast("No summary content to export.", "error");
+    if (!summaryText.trim())
+      return pushToast("No summary content to export.", "error");
 
     const blob = new Blob([summaryText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -236,7 +262,8 @@ export default function AiSummaryPage() {
   }
 
   async function exportAsPdf() {
-    if (!summaryText.trim()) return pushToast("No summary content to export.", "error");
+    if (!summaryText.trim())
+      return pushToast("No summary content to export.", "error");
 
     setIsExportingPdf(true);
     try {
@@ -256,7 +283,10 @@ export default function AiSummaryPage() {
       doc.save(`medibrief-summary-${getSelectedPatientName()}.pdf`);
       pushToast("Summary exported as .pdf", "success");
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Unable to export PDF.", "error");
+      pushToast(
+        error instanceof Error ? error.message : "Unable to export PDF.",
+        "error",
+      );
     } finally {
       setIsExportingPdf(false);
     }
@@ -268,11 +298,11 @@ export default function AiSummaryPage() {
     <section className="panel" aria-busy={isGenerating || isLoadingPatients}>
       <SectionHeader
         title="AI Clinical Summary"
-        description="Real-time AI-generated monitoring insights from vitals, labs, and consultations via SSE-powered pipeline."
+        description="Prepare a clinical summary from the selected patient’s measurements, lab results and consultations"
       />
 
       {/* Patient selector */}
-      <div className="field" style={{ marginBottom: "0.9rem" }}>
+      <div className="field" style={{ marginBottom: "16px" }}>
         <label htmlFor="summary-patient">Patient</label>
         <select
           id="summary-patient"
@@ -295,7 +325,7 @@ export default function AiSummaryPage() {
       </div>
 
       {!isLoadingPatients && patients.length === 0 && (
-        <p className="muted" style={{ marginBottom: "0.8rem" }}>
+        <p className="muted" style={{ marginBottom: "12px" }}>
           Add a patient first to generate AI summaries.
         </p>
       )}
@@ -320,7 +350,8 @@ export default function AiSummaryPage() {
         )}
 
         <p className="ai-disclaimer muted">
-          Disclaimer: AI-generated monitoring support only. This is not a diagnosis.
+          Disclaimer: AI-generated monitoring support only. This is not a
+          diagnosis.
         </p>
       </div>
 
@@ -341,7 +372,12 @@ export default function AiSummaryPage() {
             "Generate New Summary"
           )}
         </button>
-        <button className="btn btn-secondary" type="button" onClick={exportAsText} disabled={!hasGeneratedSummary}>
+        <button
+          className="btn btn-secondary"
+          type="button"
+          onClick={exportAsText}
+          disabled={!hasGeneratedSummary}
+        >
           Export .txt
         </button>
         <button
@@ -356,7 +392,7 @@ export default function AiSummaryPage() {
 
       {/* Summary history */}
       {history.length > 0 && (
-        <div className="ai-history" style={{ marginTop: "1.2rem" }}>
+        <div className="ai-history" style={{ marginTop: "20px" }}>
           <h3 className="ai-history-title">Previous Summaries</h3>
           <div className="ai-history-list">
             {history.map((item) => (

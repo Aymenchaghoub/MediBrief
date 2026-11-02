@@ -55,6 +55,7 @@ export default function SecurityPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState("");
   const [entityTypeFilter, setEntityTypeFilter] = useState("");
 
@@ -64,6 +65,7 @@ export default function SecurityPage() {
   const loadAuditLogs = useCallback(
     async (targetPage: number) => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const params = new URLSearchParams({
           page: String(targetPage),
@@ -72,12 +74,18 @@ export default function SecurityPage() {
         if (actionFilter) params.set("action", actionFilter);
         if (entityTypeFilter) params.set("entityType", entityTypeFilter);
 
-        const resp = await apiFetch<AuditResponse>(`/audit?${params.toString()}`, { auth: true });
+        const resp = await apiFetch<AuditResponse>(
+          `/audit?${params.toString()}`,
+          { auth: true },
+        );
         setRecords(resp.records);
         setTotal(resp.total);
         setPage(resp.page);
       } catch (error) {
-        pushToast(error instanceof Error ? error.message : "Unable to load audit logs.", "error");
+        const message =
+          error instanceof Error ? error.message : "Unable to load audit logs";
+        setLoadError(message);
+        pushToast(message, "error");
       } finally {
         setIsLoading(false);
       }
@@ -102,7 +110,8 @@ export default function SecurityPage() {
 
   function actionBadgeClass(action: string): string {
     if (action.includes("CREATE")) return "badge badge-safe";
-    if (action.includes("ARCHIVE") || action.includes("DELETE")) return "badge badge-critical";
+    if (action.includes("ARCHIVE") || action.includes("DELETE"))
+      return "badge badge-critical";
     if (action.includes("UPDATE")) return "badge badge-warn";
     if (action === "LOGIN") return "badge badge-info";
     return "badge";
@@ -113,10 +122,10 @@ export default function SecurityPage() {
       <section className="panel">
         <SectionHeader
           title="Enterprise Audit Dashboard"
-          description="Full compliance audit trail — admin-only visibility into every system action."
+          description="Review recorded activity in your clinic · Administrator access"
         />
 
-        <div className="grid-4" style={{ marginBottom: "1rem" }}>
+        <div className="grid-4" style={{ marginBottom: "16px" }}>
           <div className="field" style={{ marginTop: 0 }}>
             <label htmlFor="action-filter">Action</label>
             <select
@@ -150,13 +159,18 @@ export default function SecurityPage() {
           </div>
         </div>
 
-        <p className="muted" style={{ marginBottom: "0.5rem" }}>
+        <p className="muted" style={{ marginBottom: "8px" }}>
           Total records: <strong>{total}</strong> — Page {page} of {totalPages}
         </p>
       </section>
 
       <section className="panel" aria-busy={isLoading}>
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Audit trail"
+        >
           <table>
             <thead>
               <tr>
@@ -173,9 +187,19 @@ export default function SecurityPage() {
                 <tr>
                   <td colSpan={6}>Loading audit logs...</td>
                 </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={6}>
+                    <p className="form-error" role="alert">
+                      {loadError}
+                    </p>
+                  </td>
+                </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>No audit records match the current filters.</td>
+                  <td colSpan={6}>
+                    No audit records match the current filters.
+                  </td>
                 </tr>
               ) : (
                 records.map((record) => (
@@ -184,11 +208,15 @@ export default function SecurityPage() {
                     <td>{record.user.name}</td>
                     <td>{record.user.role}</td>
                     <td>
-                      <span className={actionBadgeClass(record.action)}>{record.action}</span>
+                      <span className={actionBadgeClass(record.action)}>
+                        {record.action}
+                      </span>
                     </td>
                     <td>{record.entityType}</td>
                     <td>
-                      <code style={{ fontSize: "0.75rem" }}>{record.entityId.slice(0, 8)}…</code>
+                      <code style={{ fontSize: "0.75rem" }}>
+                        {record.entityId.slice(0, 8)}…
+                      </code>
                     </td>
                   </tr>
                 ))
@@ -197,7 +225,7 @@ export default function SecurityPage() {
           </table>
         </div>
 
-        <div className="button-row" style={{ marginTop: "1rem", gap: "0.5rem" }}>
+        <div className="button-row" style={{ marginTop: "16px", gap: "8px" }}>
           <button
             className="btn btn-secondary"
             disabled={page <= 1 || isLoading}

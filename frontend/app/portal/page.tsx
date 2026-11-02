@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import { generateHealthReportPdf } from "@/lib/pdf-report";
 import { useToast } from "@/components/ui/toast-provider";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StreamingMarkdown } from "@/components/ai/streaming-markdown";
 
 interface Profile {
   id: string;
@@ -59,6 +60,7 @@ export default function PortalOverview() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [summaries, setSummaries] = useState<AISummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -72,11 +74,20 @@ export default function PortalOverview() {
         setAppointments(a);
         setSummaries(s);
       })
+      .catch((error) =>
+        setLoadError(
+          error instanceof Error ? error.message : "Unable to load this page",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return <p className="muted" style={{ padding: "2rem" }}>Loading your portal…</p>;
+    return (
+      <p className="loading-state" role="status">
+        Loading your portal…
+      </p>
+    );
   }
 
   const upcoming = appointments.filter((a) => new Date(a.date) >= new Date());
@@ -97,23 +108,48 @@ export default function PortalOverview() {
       });
       pushToast(`Report saved as ${fileName}`, "success");
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : "Failed to generate PDF", "error");
+      pushToast(
+        err instanceof Error ? err.message : "Failed to generate PDF",
+        "error",
+      );
     } finally {
       setExporting(false);
     }
   }
 
+  if (loadError) {
+    return (
+      <section className="panel">
+        <h2 className="section-title">Your health overview</h2>
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <>
       {/* Welcome banner */}
-      <div className="panel" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.8rem" }}>
+      <div
+        className="panel"
+        style={{
+          marginBottom: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
         <div>
-          <p className="brand-kicker">Welcome back</p>
-          <h2 style={{ fontSize: "1.4rem", marginBottom: "0.4rem" }}>
+          <p className="brand-kicker">Your health overview</p>
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "8px" }}>
             {profile?.firstName} {profile?.lastName}
           </h2>
           <p className="muted">
-            {profile?.clinic.name} · Member since {profile ? formatDate(profile.createdAt) : "–"}
+            {profile?.clinic.name} · Member since{" "}
+            {profile ? formatDate(profile.createdAt) : "–"}
           </p>
         </div>
         <button
@@ -122,26 +158,36 @@ export default function PortalOverview() {
           disabled={exporting}
           onClick={handleExportPdf}
         >
-          {exporting ? "Generating…" : "⬇ Download Health Report"}
+          {exporting ? "Generating…" : "Download health report"}
         </button>
       </div>
 
       {/* Quick stats */}
-      <div className="grid-4" style={{ marginBottom: "1rem" }}>
+      <div className="grid-4" style={{ marginBottom: "16px" }}>
         <div className="panel stat-card">
-          <p className="muted" style={{ fontSize: "0.82rem" }}>Upcoming RDV</p>
+          <p className="muted" style={{ fontSize: "0.82rem" }}>
+            Upcoming appointments
+          </p>
           <p className="metric-value">{upcoming.length}</p>
         </div>
         <div className="panel stat-card">
-          <p className="muted" style={{ fontSize: "0.82rem" }}>Past Appointments</p>
-          <p className="metric-value">{appointments.length - upcoming.length}</p>
+          <p className="muted" style={{ fontSize: "0.82rem" }}>
+            Past Appointments
+          </p>
+          <p className="metric-value">
+            {appointments.length - upcoming.length}
+          </p>
         </div>
         <div className="panel stat-card">
-          <p className="muted" style={{ fontSize: "0.82rem" }}>AI Summaries</p>
+          <p className="muted" style={{ fontSize: "0.82rem" }}>
+            AI Summaries
+          </p>
           <p className="metric-value">{summaries.length}</p>
         </div>
         <div className="panel stat-card">
-          <p className="muted" style={{ fontSize: "0.82rem" }}>Gender</p>
+          <p className="muted" style={{ fontSize: "0.82rem" }}>
+            Gender
+          </p>
           <p className="metric-value" style={{ fontSize: "1.1rem" }}>
             {profile?.gender ?? "–"}
           </p>
@@ -149,16 +195,20 @@ export default function PortalOverview() {
       </div>
 
       {/* Personal info */}
-      <div className="panel" style={{ marginBottom: "1rem" }}>
+      <div className="panel" style={{ marginBottom: "16px" }}>
         <h3 className="section-title">Personal Information</h3>
-        <div className="detail-grid" style={{ marginTop: "0.6rem" }}>
+        <div className="detail-grid" style={{ marginTop: "8px" }}>
           <div className="detail-kv">
             <span className="detail-label">Date of Birth</span>
-            <span className="detail-value">{profile ? formatDate(profile.dateOfBirth) : "–"}</span>
+            <span className="detail-value">
+              {profile ? formatDate(profile.dateOfBirth) : "–"}
+            </span>
           </div>
           <div className="detail-kv">
             <span className="detail-label">Phone</span>
-            <span className="detail-value">{profile?.phone ?? "Not provided"}</span>
+            <span className="detail-value">
+              {profile?.phone ?? "Not provided"}
+            </span>
           </div>
           <div className="detail-kv">
             <span className="detail-label">Email</span>
@@ -166,7 +216,10 @@ export default function PortalOverview() {
           </div>
           <div className="detail-kv">
             <span className="detail-label">Patient ID</span>
-            <span className="detail-value" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+            <span
+              className="detail-value"
+              style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
+            >
               {profile?.id.slice(0, 8)}…
             </span>
           </div>
@@ -174,18 +227,24 @@ export default function PortalOverview() {
       </div>
 
       {/* Upcoming appointments */}
-      <div className="panel" style={{ marginBottom: "1rem" }}>
+      <div className="panel" style={{ marginBottom: "16px" }}>
         <h3 className="section-title">Upcoming Appointments</h3>
         {upcoming.length === 0 ? (
           <EmptyState
-            icon="📅"
+            icon="calendar"
             title="No upcoming appointments"
             description="When your clinic schedules a visit, it will appear here."
             actionLabel="View all appointments"
             actionHref="/portal/appointments"
           />
         ) : (
-          <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-label="Upcoming appointments"
+            style={{ marginTop: "8px" }}
+          >
             <table>
               <thead>
                 <tr>
@@ -212,13 +271,20 @@ export default function PortalOverview() {
       <div className="panel">
         <h3 className="section-title">Latest AI Summary</h3>
         {summaries.length === 0 ? (
-          <p className="muted" style={{ marginTop: "0.5rem" }}>No AI summaries yet.</p>
+          <p className="muted" style={{ marginTop: "8px" }}>
+            No AI summaries yet.
+          </p>
         ) : (
-          <div style={{ marginTop: "0.5rem" }}>
-            <p className="muted" style={{ fontSize: "0.82rem", marginBottom: "0.3rem" }}>
+          <div style={{ marginTop: "8px" }}>
+            <p
+              className="muted"
+              style={{ fontSize: "0.82rem", marginBottom: "4px" }}
+            >
               Generated {formatDate(summaries[0].createdAt)}
             </p>
-            <pre className="portal-summary-text">{summaries[0].summaryText}</pre>
+            <div className="portal-summary-text">
+              <StreamingMarkdown content={summaries[0].summaryText} immediate />
+            </div>
           </div>
         )}
       </div>

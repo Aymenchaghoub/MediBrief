@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { portalFetch } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ChevronDown } from "lucide-react";
+import { StreamingMarkdown } from "@/components/ai/streaming-markdown";
 
 interface AISummary {
   id: string;
@@ -14,16 +16,37 @@ interface AISummary {
 export default function MySummariesPage() {
   const [summaries, setSummaries] = useState<AISummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     portalFetch<AISummary[]>("/portal/summaries")
       .then(setSummaries)
+      .catch((error) =>
+        setLoadError(
+          error instanceof Error ? error.message : "Unable to load this page",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return <p className="muted" style={{ padding: "2rem" }}>Loading summaries…</p>;
+    return (
+      <p className="loading-state" role="status">
+        Loading summaries…
+      </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="panel">
+        <h2 className="section-title">My summaries</h2>
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -37,40 +60,54 @@ export default function MySummariesPage() {
 
       {summaries.length === 0 ? (
         <div className="panel">
-          <EmptyState icon="🤖" title="No AI summaries yet" description="Once your care team generates an AI summary, it will appear here." />
+          <EmptyState
+            icon="summary"
+            title="No AI summaries yet"
+            description="Once your care team generates an AI summary, it will appear here."
+          />
         </div>
       ) : (
         summaries.map((s) => (
-          <div
-            key={s.id}
-            className="panel portal-summary-card"
-            style={{ marginBottom: "0.8rem", cursor: "pointer" }}
-            onClick={() => setExpanded(expanded === s.id ? null : s.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") setExpanded(expanded === s.id ? null : s.id);
-            }}
-            role="button"
-            tabIndex={0}
-            aria-expanded={expanded === s.id}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontWeight: 600 }}>Summary — {formatDate(s.createdAt)}</p>
-                <p className="muted" style={{ fontSize: "0.82rem", marginTop: "0.15rem" }}>
-                  ID: {s.id.slice(0, 8)}… · Click to {expanded === s.id ? "collapse" : "expand"}
-                </p>
-              </div>
-              <span style={{ fontSize: "1.2rem", transition: "transform 0.2s", transform: expanded === s.id ? "rotate(180deg)" : "rotate(0deg)" }}>
-                ▾
+          <article key={s.id} className="panel portal-summary-card">
+            <button
+              type="button"
+              className="portal-summary-toggle"
+              onClick={() => setExpanded(expanded === s.id ? null : s.id)}
+              aria-expanded={expanded === s.id}
+              aria-controls={`summary-${s.id}`}
+            >
+              <span>
+                <span style={{ display: "block", fontWeight: 500 }}>
+                  Summary · {formatDate(s.createdAt)}
+                </span>
+                <span
+                  className="muted"
+                  style={{ display: "block", fontSize: 13, marginTop: 8 }}
+                >
+                  Record {s.id.slice(0, 8)} ·{" "}
+                  {expanded === s.id ? "Hide summary" : "Read summary"}
+                </span>
               </span>
+              <ChevronDown
+                size={18}
+                strokeWidth={1.5}
+                aria-hidden="true"
+                style={{
+                  transform: expanded === s.id ? "rotate(180deg)" : undefined,
+                }}
+              />
+            </button>
+            <div
+              id={`summary-${s.id}`}
+              hidden={expanded !== s.id}
+              className="portal-summary-text"
+              style={{ marginTop: 24 }}
+            >
+              {expanded === s.id && (
+                <StreamingMarkdown content={s.summaryText} immediate />
+              )}
             </div>
-
-            {expanded === s.id && (
-              <pre className="portal-summary-text" style={{ marginTop: "0.8rem" }}>
-                {s.summaryText}
-              </pre>
-            )}
-          </div>
+          </article>
         ))
       )}
     </>

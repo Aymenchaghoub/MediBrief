@@ -100,6 +100,10 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      - name: Run frontend UI regression tests
+        working-directory: frontend
+        run: npm run test:ui
+
       - name: Run Playwright tests
         if: false  # Enable when E2E environment is available
         working-directory: frontend

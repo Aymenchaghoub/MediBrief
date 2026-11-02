@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+const motionQuery = "(prefers-reduced-motion: reduce)";
+function subscribeToMotion(onChange: () => void) {
+  const media = window.matchMedia(motionQuery);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
 
 interface StreamingMarkdownProps {
   /** The full text to render (typewriter effect applies on first appearance). */
@@ -28,12 +35,19 @@ export function StreamingMarkdown({
   immediate = false,
   onComplete,
 }: StreamingMarkdownProps) {
+  const reducedMotion = useSyncExternalStore(
+    subscribeToMotion,
+    () => window.matchMedia(motionQuery).matches,
+    () => false,
+  );
+  const showImmediately = immediate || reducedMotion;
+
   /* --- state: tracks displayed text and previous props --- */
   const [prevContent, setPrevContent] = useState(content);
-  const [prevImmediate, setPrevImmediate] = useState(immediate);
-  const [displayed, setDisplayed] = useState(immediate ? content : "");
+  const [prevImmediate, setPrevImmediate] = useState(showImmediately);
+  const [displayed, setDisplayed] = useState(showImmediately ? content : "");
   const [isStreaming, setIsStreaming] = useState(
-    !immediate && content.length > 0,
+    !showImmediately && content.length > 0,
   );
 
   /* --- refs: only accessed inside effects / rAF callbacks --- */
@@ -43,10 +57,10 @@ export function StreamingMarkdown({
   const containerRef = useRef<HTMLDivElement>(null);
 
   /* --- adjust state when props change (render-time, no ref access) --- */
-  if (content !== prevContent || immediate !== prevImmediate) {
+  if (content !== prevContent || showImmediately !== prevImmediate) {
     setPrevContent(content);
-    setPrevImmediate(immediate);
-    if (immediate) {
+    setPrevImmediate(showImmediately);
+    if (showImmediately) {
       setDisplayed(content);
       setIsStreaming(false);
     } else {
@@ -57,7 +71,7 @@ export function StreamingMarkdown({
 
   /* --- typewriter animation loop using requestAnimationFrame --- */
   useEffect(() => {
-    if (!isStreaming || immediate) return;
+    if (!isStreaming || showImmediately) return;
 
     // Reset animation trackers at start of each effect run
     indexRef.current = 0;
@@ -92,7 +106,7 @@ export function StreamingMarkdown({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [isStreaming, content, speed, immediate, onComplete]);
+  }, [isStreaming, content, speed, showImmediately, onComplete]);
 
   /* --- auto-scroll to bottom as content streams in --- */
   useEffect(() => {

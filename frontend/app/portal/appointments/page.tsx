@@ -17,20 +17,41 @@ interface Appointment {
 export default function MyAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     portalFetch<Appointment[]>("/portal/appointments")
       .then(setAppointments)
+      .catch((error) =>
+        setLoadError(
+          error instanceof Error ? error.message : "Unable to load this page",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return <p className="muted" style={{ padding: "2rem" }}>Loading appointments…</p>;
+    return (
+      <p className="loading-state" role="status">
+        Loading appointments…
+      </p>
+    );
   }
 
   const now = new Date();
   const upcoming = appointments.filter((a) => new Date(a.date) >= now);
   const past = appointments.filter((a) => new Date(a.date) < now);
+
+  if (loadError) {
+    return (
+      <section className="panel">
+        <h2 className="section-title">My appointments</h2>
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -42,28 +63,52 @@ export default function MyAppointmentsPage() {
       </div>
 
       {/* Upcoming */}
-      <div className="panel" style={{ marginBottom: "1rem" }}>
+      <div className="panel" style={{ marginBottom: "16px" }}>
         <h3 className="section-title">
-          Upcoming <span className="muted" style={{ fontWeight: 400 }}>({upcoming.length})</span>
+          Upcoming{" "}
+          <span className="muted" style={{ fontWeight: 400 }}>
+            ({upcoming.length})
+          </span>
         </h3>
         {upcoming.length === 0 ? (
-          <EmptyState icon="📅" title="No upcoming appointments" description="When your doctor schedules a visit, it will appear here." />
+          <EmptyState
+            icon="calendar"
+            title="No upcoming appointments"
+            description="When your doctor schedules a visit, it will appear here."
+          />
         ) : (
-          <div className="portal-appointment-list" style={{ marginTop: "0.6rem" }}>
+          <div className="portal-appointment-list" style={{ marginTop: "8px" }}>
             {upcoming.map((a) => (
-              <div key={a.id} className="portal-appointment-card panel" style={{ marginBottom: "0.6rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div
+                key={a.id}
+                className="portal-appointment-card panel"
+                style={{ marginBottom: "8px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <div>
-                    <p style={{ fontWeight: 600, fontSize: "1rem" }}>{formatDate(a.date)}</p>
-                    <p className="muted" style={{ fontSize: "0.88rem" }}>Dr. {a.doctorName}</p>
+                    <p style={{ fontWeight: 600, fontSize: "1rem" }}>
+                      {formatDate(a.date)}
+                    </p>
+                    <p className="muted" style={{ fontSize: "0.88rem" }}>
+                      Dr. {a.doctorName}
+                    </p>
                   </div>
                   <span className="badge badge-safe">Upcoming</span>
                 </div>
-                <p style={{ marginTop: "0.5rem", fontSize: "0.92rem" }}>
+                <p style={{ marginTop: "8px", fontSize: "0.92rem" }}>
                   <strong>Symptoms:</strong> {a.symptoms}
                 </p>
                 {a.notes && (
-                  <p className="muted" style={{ marginTop: "0.3rem", fontSize: "0.88rem" }}>
+                  <p
+                    className="muted"
+                    style={{ marginTop: "4px", fontSize: "0.88rem" }}
+                  >
                     <strong>Notes:</strong> {a.notes}
                   </p>
                 )}
@@ -76,12 +121,25 @@ export default function MyAppointmentsPage() {
       {/* Past */}
       <div className="panel">
         <h3 className="section-title">
-          Past Consultations <span className="muted" style={{ fontWeight: 400 }}>({past.length})</span>
+          Past Consultations{" "}
+          <span className="muted" style={{ fontWeight: 400 }}>
+            ({past.length})
+          </span>
         </h3>
         {past.length === 0 ? (
-          <EmptyState icon="📋" title="No past consultations" description="Your consultation history will build up over time." />
+          <EmptyState
+            icon="consultations"
+            title="No past consultations"
+            description="Your consultation history will build up over time."
+          />
         ) : (
-          <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-label="Past consultations"
+            style={{ marginTop: "8px" }}
+          >
             <table>
               <thead>
                 <tr>
