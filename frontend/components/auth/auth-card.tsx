@@ -5,6 +5,7 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { saveToken } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast-provider";
+import { Brand } from "@/components/ui/brand";
 
 interface AuthResponse {
   token: string;
@@ -25,13 +26,21 @@ export function AuthCard() {
 
   function validate(): string | null {
     if (!email.trim()) return "Email is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Please enter a valid email address.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return "Please enter a valid email address.";
     if (password.length < 8) return "Password must be at least 8 characters.";
     if (mode === "register") {
-      if (clinicName.trim().length < 2) return "Clinic name must be at least 2 characters.";
-      if (!clinicEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) return "Please enter a valid clinic email.";
-      if (adminName.trim().length < 2) return "Admin name must be at least 2 characters.";
-      if (subscriptionPlan.trim().length < 2) return "Subscription plan must be at least 2 characters.";
+      if (clinicName.trim().length < 2)
+        return "Clinic name must be at least 2 characters.";
+      if (
+        !clinicEmail.trim() ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)
+      )
+        return "Please enter a valid clinic email.";
+      if (adminName.trim().length < 2)
+        return "Admin name must be at least 2 characters.";
+      if (subscriptionPlan.trim().length < 2)
+        return "Subscription plan must be at least 2 characters.";
     }
     return null;
   }
@@ -76,7 +85,10 @@ export function AuthCard() {
       router.push("/dashboard");
       router.refresh();
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Authentication failed";
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Authentication failed";
       setError(message);
       pushToast(message, "error");
     } finally {
@@ -87,10 +99,13 @@ export function AuthCard() {
   return (
     <section className="auth-shell">
       <div className="auth-card">
-        <p className="brand-kicker">MediBrief Access</p>
-        <h1 className="section-title">{mode === "login" ? "Clinic Sign In" : "Register Clinic"}</h1>
+        <Brand />
+        <h1 className="section-title">
+          {mode === "login" ? "Clinic sign in" : "Register clinic"}
+        </h1>
         <p className="muted section-description">
-          Use your clinic account to access patients, analytics, and AI summaries.
+          Use your clinic account to access patients, analytics, and AI
+          summaries.
         </p>
 
         <div className="button-row auth-actions auth-mode-switch">
@@ -112,7 +127,7 @@ export function AuthCard() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} aria-busy={isSubmitting}>
           {mode === "register" ? (
             <>
               <div className="field">
@@ -130,6 +145,7 @@ export function AuthCard() {
                 <input
                   id="clinic-email"
                   type="email"
+                  autoComplete="username"
                   value={clinicEmail}
                   onChange={(event) => setClinicEmail(event.target.value)}
                   required
@@ -163,6 +179,7 @@ export function AuthCard() {
             <input
               id="email"
               type="email"
+              autoComplete="username"
               placeholder="doctor@clinic.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -175,6 +192,9 @@ export function AuthCard() {
             <input
               id="password"
               type="password"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -183,18 +203,30 @@ export function AuthCard() {
             />
           </div>
 
-          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {error ? (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <div className="button-row auth-actions">
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? "Please wait..." : mode === "login" ? "Sign In" : "Create Clinic"}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? "Please wait..."
+                : mode === "login"
+                  ? "Sign In"
+                  : "Create Clinic"}
             </button>
           </div>
         </form>
 
-        <p className="muted" style={{ marginTop: "1rem", fontSize: "0.85rem" }}>
+        <p className="muted auth-switch-note">
           Are you a patient?{" "}
-          <a href="/patient-auth" style={{ color: "var(--primary-hover)", textDecoration: "underline" }}>
+          <a href="/patient-auth" className="text-link">
             Patient portal →
           </a>
         </p>

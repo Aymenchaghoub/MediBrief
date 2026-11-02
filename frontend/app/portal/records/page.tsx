@@ -1,11 +1,20 @@
 "use client";
 
+import { handleTabKeyDown } from "@/components/ui/tab-keyboard";
+
 import { useEffect, useState } from "react";
 import { portalFetch } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { generateHealthReportPdf } from "@/lib/pdf-report";
 import { useToast } from "@/components/ui/toast-provider";
 import { EmptyState } from "@/components/ui/empty-state";
+
+const METRIC_LABELS: Record<string, string> = {
+  BP: "Blood pressure",
+  GLUCOSE: "Blood glucose",
+  HEART_RATE: "Heart rate",
+  WEIGHT: "Weight",
+};
 
 interface VitalRecord {
   id: string;
@@ -65,6 +74,7 @@ export default function MyRecordsPage() {
   const [analytics, setAnalytics] = useState<VitalsAnalytics | null>(null);
   const [tab, setTab] = useState<"vitals" | "labs">("vitals");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -78,6 +88,11 @@ export default function MyRecordsPage() {
         setLabs(l);
         setAnalytics(a);
       })
+      .catch((error) =>
+        setLoadError(
+          error instanceof Error ? error.message : "Unable to load this page",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -96,22 +111,51 @@ export default function MyRecordsPage() {
       });
       pushToast(`Report saved as ${fileName}`, "success");
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : "Failed to generate PDF", "error");
+      pushToast(
+        err instanceof Error ? err.message : "Failed to generate PDF",
+        "error",
+      );
     } finally {
       setExporting(false);
     }
   }
 
   if (loading) {
-    return <p className="muted" style={{ padding: "2rem" }}>Loading records…</p>;
+    return (
+      <p className="loading-state" role="status">
+        Loading records…
+      </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="panel">
+        <h2 className="section-title">My health records</h2>
+        <p className="form-error" role="alert">
+          {loadError}
+        </p>
+      </section>
+    );
   }
 
   return (
     <>
-      <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.8rem" }}>
+      <div
+        className="section-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
         <div>
           <h2 className="section-title">My Health Records</h2>
-          <p className="muted section-description">Your vitals, lab results, and health trends.</p>
+          <p className="muted section-description">
+            Your vitals, lab results, and health trends.
+          </p>
         </div>
         <button
           type="button"
@@ -119,23 +163,31 @@ export default function MyRecordsPage() {
           disabled={exporting}
           onClick={handleExportPdf}
         >
-          {exporting ? "Generating…" : "⬇ Download Health Report"}
+          {exporting ? "Generating…" : "Download health report"}
         </button>
       </div>
 
       {/* Trend cards */}
       {analytics && (
-        <div className="grid-4" style={{ marginBottom: "1rem" }}>
+        <div className="grid-4" style={{ marginBottom: "16px" }}>
           {analytics.trends.map((t) => (
-            <div key={t.metric} className="panel stat-card">
-              <p className="muted" style={{ fontSize: "0.82rem" }}>{t.metric}</p>
+            <div
+              key={METRIC_LABELS[t.metric] ?? t.metric}
+              className="panel stat-card"
+            >
+              <p className="muted" style={{ fontSize: "0.82rem" }}>
+                {METRIC_LABELS[t.metric] ?? t.metric}
+              </p>
               <p className="metric-value">{t.latest ?? "–"}</p>
               <p className="kpi-trend">
-                {t.delta > 0 ? `+${t.delta}` : t.delta} · {t.points} readings
+                {t.points > 1
+                  ? `${t.delta > 0 ? "+" : ""}${t.delta} · ${t.points} readings`
+                  : `${t.points} recorded readings · No comparison yet`}
               </p>
               {t.anomalies.length > 0 && (
-                <span className="badge badge-high" style={{ marginTop: "0.3rem" }}>
-                  {t.anomalies.length} anomal{t.anomalies.length === 1 ? "y" : "ies"}
+                <span className="badge badge-high" style={{ marginTop: "4px" }}>
+                  {t.anomalies.length} anomal
+                  {t.anomalies.length === 1 ? "y" : "ies"}
                 </span>
               )}
             </div>
@@ -144,12 +196,18 @@ export default function MyRecordsPage() {
       )}
 
       {/* Tab bar */}
-      <div className="tab-bar" role="tablist">
+      <div
+        className="tab-bar"
+        role="tablist"
+        aria-label="Health records"
+        onKeyDown={handleTabKeyDown}
+      >
         <button
           type="button"
           role="tab"
           className="tab-btn"
           aria-selected={tab === "vitals"}
+          tabIndex={tab === "vitals" ? 0 : -1}
           onClick={() => setTab("vitals")}
         >
           Vitals ({vitals.length})
@@ -159,6 +217,7 @@ export default function MyRecordsPage() {
           role="tab"
           className="tab-btn"
           aria-selected={tab === "labs"}
+          tabIndex={tab === "labs" ? 0 : -1}
           onClick={() => setTab("labs")}
         >
           Lab Results ({labs.length})
@@ -169,9 +228,18 @@ export default function MyRecordsPage() {
       {tab === "vitals" && (
         <div className="panel">
           {vitals.length === 0 ? (
-            <EmptyState icon="💓" title="No vitals recorded" description="Your clinic hasn't added any vital sign readings yet." />
+            <EmptyState
+              icon="activity"
+              title="No vitals recorded"
+              description="Your clinic hasn't added any vital sign readings yet."
+            />
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              tabIndex={0}
+              role="region"
+              aria-label="Health records"
+            >
               <table>
                 <thead>
                   <tr>
@@ -186,7 +254,9 @@ export default function MyRecordsPage() {
                     <tr key={v.id}>
                       <td>{formatDate(v.recordedAt)}</td>
                       <td>
-                        <span className="badge badge-safe">{v.type}</span>
+                        <span className="badge">
+                          {METRIC_LABELS[v.type] ?? v.type}
+                        </span>
                       </td>
                       <td>{v.value}</td>
                       <td className="muted">{v.unit || "–"}</td>
@@ -203,9 +273,18 @@ export default function MyRecordsPage() {
       {tab === "labs" && (
         <div className="panel">
           {labs.length === 0 ? (
-            <EmptyState icon="🧪" title="No lab results yet" description="Lab results from your clinic will show up here automatically." />
+            <EmptyState
+              icon="labs"
+              title="No lab results yet"
+              description="Lab results from your clinic will show up here automatically."
+            />
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              tabIndex={0}
+              role="region"
+              aria-label="Health records"
+            >
               <table>
                 <thead>
                   <tr>

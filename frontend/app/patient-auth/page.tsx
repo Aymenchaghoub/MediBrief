@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { savePatientToken } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast-provider";
+import { Brand } from "@/components/ui/brand";
 
 interface AuthResponse {
   token: string;
@@ -13,7 +14,13 @@ interface AuthResponse {
 
 export default function PatientAuthPage() {
   return (
-    <Suspense fallback={<p className="muted" style={{ padding: "2rem" }}>Loading…</p>}>
+    <Suspense
+      fallback={
+        <p className="muted" style={{ padding: "32px" }}>
+          Loading…
+        </p>
+      }
+    >
       <PatientAuthInner />
     </Suspense>
   );
@@ -26,7 +33,9 @@ function PatientAuthInner() {
 
   const tokenFromUrl = searchParams.get("token");
 
-  const [mode, setMode] = useState<"login" | "setup">(tokenFromUrl ? "setup" : "login");
+  const [mode, setMode] = useState<"login" | "setup">(
+    tokenFromUrl ? "setup" : "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteToken, setInviteToken] = useState(tokenFromUrl ?? "");
@@ -53,20 +62,21 @@ function PatientAuthInner() {
           body: JSON.stringify({ email, password }),
         });
         savePatientToken(res.token);
-        pushToast("Welcome back!", "success");
+        pushToast("Signed in", "success");
       } else {
         const res = await apiFetch<AuthResponse>("/auth/patient-setup", {
           method: "POST",
           body: JSON.stringify({ inviteToken, email, password }),
         });
         savePatientToken(res.token);
-        pushToast("Account created — welcome to your portal!", "success");
+        pushToast("Account activated", "success");
       }
 
       router.push("/portal");
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Authentication failed";
+      const message =
+        err instanceof Error ? err.message : "Authentication failed";
       setError(message);
       pushToast(message, "error");
     } finally {
@@ -77,9 +87,9 @@ function PatientAuthInner() {
   return (
     <section className="auth-shell">
       <div className="auth-card">
-        <p className="brand-kicker">MediBrief</p>
+        <Brand />
         <h1 className="section-title">
-          {mode === "login" ? "Patient Sign In" : "Activate Your Account"}
+          {mode === "login" ? "Patient sign in" : "Activate your account"}
         </h1>
         <p className="muted section-description">
           {mode === "login"
@@ -108,7 +118,7 @@ function PatientAuthInner() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} aria-busy={busy}>
           {mode === "setup" && (
             <div className="field">
               <label htmlFor="invite-token">Invite Token</label>
@@ -119,10 +129,12 @@ function PatientAuthInner() {
                 onChange={(e) => setInviteToken(e.target.value)}
                 required
                 readOnly={!!tokenFromUrl}
-                style={tokenFromUrl ? { opacity: 0.7 } : undefined}
               />
               {tokenFromUrl && (
-                <p className="muted" style={{ fontSize: "0.8rem", marginTop: "0.2rem" }}>
+                <p
+                  className="muted"
+                  style={{ fontSize: "0.8rem", marginTop: "4px" }}
+                >
                   Auto-filled from your invite link.
                 </p>
               )}
@@ -134,6 +146,7 @@ function PatientAuthInner() {
             <input
               id="patient-email"
               type="email"
+              autoComplete="username"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -146,6 +159,9 @@ function PatientAuthInner() {
             <input
               id="patient-password"
               type="password"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -171,9 +187,9 @@ function PatientAuthInner() {
           </div>
         </form>
 
-        <p className="muted" style={{ marginTop: "1rem", fontSize: "0.85rem" }}>
+        <p className="muted auth-switch-note">
           Are you a clinic staff member?{" "}
-          <a href="/auth" style={{ color: "var(--primary-hover)", textDecoration: "underline" }}>
+          <a href="/auth" className="text-link">
             Staff login →
           </a>
         </p>
